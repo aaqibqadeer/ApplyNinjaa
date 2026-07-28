@@ -5,10 +5,59 @@
 > Recent phases stay here; older entries live in
 > [`decisions-archive.md`](./decisions-archive.md). Keep this file small.
 
+## 2026-07-28 — v1.1: tiers, extension redesign, branding, hosting
+
+- **Numeric limits must not go through `hasAccess()`.** Its `toBoolean`
+  returns true for any positive number, so a `profileLimit` of 1 and of 3 both
+  read as "allowed". Booleans use `requireFeature()`; numerics use the typed
+  readers in `lib/usage/enforce.ts`. `-1` = unlimited.
+- **`EntitlementError` mimics `UsageLimitError` on purpose** (402 + `.payload`
+  - `.status`), so the `catch → authErrorResponse(error)` tail every route
+    already ends in serves it with no route changes, and the extension's
+    existing `code`/`upgradeUrl` handling works unmodified.
+- **Limits gate creation only; downgrades never delete.** A user dropping from
+  Pro to Starter keeps every profile readable and editable.
+- **CSV export can only be gated in the UI.** It's built client-side from data
+  the user already holds — there is no server call to refuse. Stated as an
+  accepted limit rather than pretended otherwise.
+- **`npm run seed` now backfills missing limit keys** onto existing plan rows
+  and never overwrites a value a super admin tuned, so an already-live
+  database adopts new entitlements by re-running it.
+- **Trial grants Starter, not Pro** — a week of the top tier costs more in AI
+  calls and makes Starter look pointless afterwards. Trial-tier copy is now
+  tier-neutral so it can't go stale again.
+- **Popup open must cost zero AI calls.** It used to auto-run `analyze-job`,
+  so every glance billed. `GET /api/usage` exists because usage was previously
+  only obtainable from an AI response — you had to spend a call to learn you
+  had none left. The `<40 chars` gate moved to Check Fit Score alone; an
+  application FORM has almost no page text, and that's exactly where Quick
+  Fill and Track matter.
+- **Quick Fill runs in the popup, not the page.** Injected functions must be
+  closure-free (dom-actions.ts), so matching happens in the popup and only the
+  computed `{id,value}[]` crosses into the page via the existing `fillFields`.
+- **`fill-data` ships decrypted EEO** — deliberate owner decision, the one
+  place the "EEO stays server-side" rule is relaxed, and a reversal of
+  7b3b0a2 for this endpoint only. `listProfileSummaries` still withholds it.
+  The payload is a whitelist, never a spread, so new profile fields can't leak
+  by default.
+- **Absence of information is Neutral, never No.** The old prompt left this to
+  inference, so a posting silent on sponsorship could come back "No". Silence
+  is not refusal.
+- **oklch can express out-of-gamut colours and browsers clip them silently.**
+  Two obvious-looking values (`0.70 0.19 300`, `0.95 0.03 300`) are outside
+  sRGB; max chroma at L=0.70 hue 300 is 0.186. Verify numerically before
+  shipping a token.
+- **No CD workflow, by design.** Railway's GitHub integration plus its "Wait
+  for CI" setting is the deploy path; a workflow needing a `RAILWAY_TOKEN`
+  that doesn't exist would fail on every push. `hard-delete` stays a plain npm
+  script so any host can schedule it — that's what keeps hosting reversible.
+- **`format:check` is not a CI gate.** The repo has never been Prettier-clean
+  (44 files); adding it would make CI red on arrival.
+
 ## 2026-07-28 — v1.1: first-live-run bug fixes
 
 - **Never import a runtime value from a `"use client"` module into a Server
-  Component.** React hands back a client-reference *proxy* whose only own props
+  Component.** React hands back a client-reference _proxy_ whose only own props
   (`$$typeof`, `$$id`, `$$async`) are non-enumerable, so `{ ...value }` yields
   `{}` — silently, at SSR time. This crashed `/profiles/new`, which spread
   `emptyProfileValues` out of `ProfileForm.tsx`. Fix: shared form values/types
@@ -25,7 +74,7 @@
   `import("pdf-parse")` and zero `__webpack_exports__`. Wipe `.next/` after
   changing this or the stale bundle is reused.
 - **Form value types are the schema's mirror — extend both together.**
-  `projects` existed end-to-end (Zod, adapter, service create *and* update) but
+  `projects` existed end-to-end (Zod, adapter, service create _and_ update) but
   was missing from `ProfileFormValues`/`toFormValues`, so a resume-parsed
   projects list was persisted at create and erased on the first edit-and-save.
   Any field added to `profileSchema` needs a matching form value + editor
