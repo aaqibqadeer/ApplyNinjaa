@@ -161,61 +161,38 @@ Return {"mappings":[{"fieldId","value","confidence"}]} with one entry PER field:
   return generateJson(fieldMappingSchema, system, prompt);
 }
 
-/* -- Valid Job filter classification ---------------------------------------- */
+/* -- Job analysis (filter verdicts + fit score, ONE billable call) ----------- */
 
-export const filterClassificationSchema = z.object({
+export const jobAnalysisSchema = z.object({
   results: z.array(
     z.object({
       filterId: z.string(),
       verdict: filterVerdictSchema,
     }),
   ),
+  fitScore: z.number().min(0).max(100),
+  fitReasoning: z.string(),
 });
-export type FilterClassification = z.infer<typeof filterClassificationSchema>;
+export type JobAnalysis = z.infer<typeof jobAnalysisSchema>;
 
 export interface FilterForClassification {
   id: string;
   label: string;
-  description: string | null;
+  description?: string | null;
 }
 
-export async function classifyJobFilters(
+/**
+ * The extension popup's one-shot analysis: every enabled filter gets a
+ * Yes/No/Neutral verdict AND the profile gets a 0-100 fit score, in a single
+ * generation so it costs the user one AI call.
+ */
+export async function analyzeJob(
   jobText: string,
   filters: FilterForClassification[],
-  profile: Profile | null,
-): Promise<{ data: FilterClassification; result: GenerateResult }> {
-  const system =
-    "You evaluate job postings against a job-seeker's screening filters. Respond with ONLY JSON.";
-  const prompt = `Job posting text:
-"""
-${clip(jobText, 16_000)}
-"""
-${profile ? `\nCandidate profile (for *Match filters):\n${profileSummaryForPrompt(profile)}\n` : ""}
-Filters (JSON array):
-${JSON.stringify(filters.map((f) => ({ id: f.id, label: f.label, guidance: f.description })))}
-
-Return {"results":[{"filterId","verdict"}]} with one entry per filter.
-verdict is exactly "Yes", "No", or "Neutral":
-- "Yes" when the posting clearly satisfies/asserts the filter,
-- "No" when it clearly does not / contradicts it,
-- "Neutral" when the posting doesn't say.`;
-  return generateJson(filterClassificationSchema, system, prompt);
-}
-
-/* -- Fit score --------------------------------------------------------------- */
-
-export const fitScoreSchema = z.object({
-  score: z.number().min(0).max(100),
-  reasoning: z.string(),
-});
-export type FitScore = z.infer<typeof fitScoreSchema>;
-
-export async function scoreJobFit(
-  jobText: string,
   profile: Profile,
-): Promise<{ data: FitScore; result: GenerateResult }> {
+): Promise<{ data: JobAnalysis; result: GenerateResult }> {
   const system =
-    "You score how well a candidate fits a job posting. Respond with ONLY JSON.";
+    "You screen job postings for a job seeker: evaluate their filters and score their fit. Respond with ONLY JSON.";
   const prompt = `Candidate profile:
 ${profileSummaryForPrompt(profile)}
 
@@ -224,10 +201,17 @@ Job posting text:
 ${clip(jobText, 16_000)}
 """
 
-Return {"score", "reasoning"}:
-- score: integer 0-100 (skills/experience/seniority match; ignore demographics),
-- reasoning: ONE sentence explaining the score.`;
-  return generateJson(fitScoreSchema, system, prompt);
+Filters (JSON array):
+${JSON.stringify(filters.map((f) => ({ id: f.id, label: f.label, guidance: f.description })))}
+
+Return {"results":[{"filterId","verdict"}], "fitScore", "fitReasoning"}:
+- one results entry per filter; verdict is exactly "Yes", "No", or "Neutral"
+  ("Yes" when the posting clearly satisfies/asserts the filter, "No" when it
+  clearly contradicts it, "Neutral" when the posting doesn't say),
+- fitScore: integer 0-100 (skills/experience/seniority match vs the profile;
+  ignore demographics),
+- fitReasoning: ONE sentence explaining the score.`;
+  return generateJson(jobAnalysisSchema, system, prompt);
 }
 
 /* -- Gmail email classification ---------------------------------------------- */

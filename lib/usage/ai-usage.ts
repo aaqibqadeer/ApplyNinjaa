@@ -17,8 +17,8 @@ import { connectMongo } from "@/lib/db/mongodb/adapter";
 export const AI_CALL_KINDS = [
   "resume_parse",
   "field_map",
-  "filter_classify",
-  "fit_score",
+  // Combined filter-verdicts + fit-score popup analysis (one billable call).
+  "job_analysis",
   "gmail_classify",
 ] as const;
 export type AiCallKind = (typeof AI_CALL_KINDS)[number];
