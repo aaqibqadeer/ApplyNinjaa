@@ -10,6 +10,9 @@ import {
 import { recordAiCall } from "@/lib/usage/ai-usage";
 import { enforceAiQuota, enforceAiRateLimits } from "@/lib/usage/enforce";
 
+/* pdfjs-dist pulls a native binary — this can never run on edge. */
+export const runtime = "nodejs";
+
 /**
  * Resume upload → structured profile data (one AI call against the cap).
  * Multipart body with a `file` field (PDF/DOCX, ≤5 MB). The file is processed

@@ -13,6 +13,12 @@ import {
   WORK_ARRANGEMENTS,
   WORK_AUTHORIZATIONS,
 } from "@/lib/db/schema";
+import type {
+  EducationValue,
+  ExperienceValue,
+  ProfileFormValues,
+  ProjectValue,
+} from "@/lib/profiles/form-values";
 
 /* EEO answer sets (standard US self-identification forms). Stored encrypted
  * server-side; only collected behind the explicit consent checkbox below. */
@@ -37,61 +43,6 @@ const EEO_DISABILITY = [
   "No, I do not have a disability",
   "Prefer not to say",
 ];
-
-export interface ExperienceValue {
-  title: string;
-  company: string;
-  location?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
-  current: boolean;
-  description?: string | null;
-}
-
-export interface EducationValue {
-  school: string;
-  degree?: string | null;
-  field?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
-  gpa?: string | null;
-}
-
-export interface ProfileFormValues {
-  name: string;
-  contact: Record<string, string | null | undefined>;
-  summary: string | null;
-  skills: string[];
-  experience: ExperienceValue[];
-  education: EducationValue[];
-  links: Record<string, string | null | undefined>;
-  workAuthorization: string | null;
-  workArrangement: string | null;
-  employmentTypes: string[];
-  salaryExpectation: string | null;
-  eeo: {
-    consent: boolean;
-    gender: string | null;
-    raceEthnicity: string | null;
-    veteranStatus: string | null;
-    disabilityStatus: string | null;
-  } | null;
-}
-
-export const emptyProfileValues: ProfileFormValues = {
-  name: "Primary",
-  contact: {},
-  summary: null,
-  skills: [],
-  experience: [],
-  education: [],
-  links: {},
-  workAuthorization: null,
-  workArrangement: null,
-  employmentTypes: [],
-  salaryExpectation: null,
-  eeo: null,
-};
 
 export interface ProfileFormProps {
   initial: ProfileFormValues;
@@ -150,6 +101,12 @@ export function ProfileForm({ initial, submitLabel, onSubmit }: ProfileFormProps
       education: v.education.map((e, i) =>
         i === index ? { ...e, ...patch } : e,
       ),
+    }));
+  }
+  function setProject(index: number, patch: Partial<ProjectValue>) {
+    setValues((v) => ({
+      ...v,
+      projects: v.projects.map((p, i) => (i === index ? { ...p, ...patch } : p)),
     }));
   }
 
@@ -419,6 +376,95 @@ export function ProfileForm({ initial, submitLabel, onSubmit }: ProfileFormProps
                     set(
                       "education",
                       values.education.filter((_, j) => j !== i),
+                    )
+                  }
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Projects</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              set("projects", [
+                ...values.projects,
+                { name: "", technologies: [] },
+              ])
+            }
+          >
+            Add project
+          </Button>
+        </div>
+        <div className="flex flex-col gap-4">
+          {values.projects.map((project, i) => (
+            <div key={i} className="border-border rounded-lg border p-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={`project-name-${i}`}>Name</Label>
+                  <Input
+                    id={`project-name-${i}`}
+                    value={project.name}
+                    onChange={(e) => setProject(i, { name: e.target.value })}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={`project-url-${i}`}>Link</Label>
+                  <Input
+                    id={`project-url-${i}`}
+                    placeholder="https://…"
+                    value={project.url ?? ""}
+                    onChange={(e) =>
+                      setProject(i, { url: e.target.value || null })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="mt-3 flex flex-col gap-1.5">
+                <Label htmlFor={`project-tech-${i}`}>
+                  Technologies (comma-separated)
+                </Label>
+                <Input
+                  id={`project-tech-${i}`}
+                  placeholder="Next.js, Postgres"
+                  value={project.technologies.join(", ")}
+                  onChange={(e) =>
+                    setProject(i, {
+                      technologies: e.target.value
+                        .split(",")
+                        .map((t) => t.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              </div>
+              <div className="mt-3 flex flex-col gap-1.5">
+                <Label htmlFor={`project-desc-${i}`}>Description</Label>
+                <Textarea
+                  id={`project-desc-${i}`}
+                  value={project.description ?? ""}
+                  onChange={(e) =>
+                    setProject(i, { description: e.target.value || null })
+                  }
+                />
+              </div>
+              <div className="mt-3 flex justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    set(
+                      "projects",
+                      values.projects.filter((_, j) => j !== i),
                     )
                   }
                 >

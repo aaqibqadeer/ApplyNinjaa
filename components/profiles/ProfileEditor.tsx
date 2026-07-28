@@ -3,10 +3,8 @@
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import {
-  ProfileForm,
-  type ProfileFormValues,
-} from "@/components/profiles/ProfileForm";
+import { ProfileForm } from "@/components/profiles/ProfileForm";
+import type { ProfileFormValues } from "@/lib/profiles/form-values";
 
 interface ProfileEditorProps {
   /** Omitted = create mode (POST); present = edit mode (PATCH). */

@@ -3,8 +3,9 @@
 > **Read this first, every session** (CLAUDE.md §11). Living **snapshot** —
 > overwritten, not appended. Keep it terse. Update at the end of every phase.
 
-_Last updated: 2026-07-28 — **ApplyNinjaa v1 feature-complete** (built on
-template v1.0.0)._
+_Last updated: 2026-07-28 — **v1.1 in progress**: first live run happened;
+three crash/data-loss bugs found and fixed. Remaining v1.1 scope (tiers,
+extension redesign, branding, production roadmap) is planned but NOT built._
 
 ## What this fork is
 
@@ -13,7 +14,8 @@ Chrome MV3 extension in `/extension`): parses resumes into profiles, screens
 job postings against "Valid Job" filters (Yes/No/Neutral via AI), scores fit
 0-100, autofills applications, tracks them, and optionally scans Gmail.
 Positioning: visa-constrained job seekers (F-1 OPT/STEM OPT, H1-B, TN,
-H4-EAD). All work on branch `staging`.
+H4-EAD). v1 shipped on `staging`; v1.1 work is on
+`claude/nextjs-boilerplate-analysis-mt71w3`.
 
 ## Resolved choices
 
@@ -77,6 +79,10 @@ H4-EAD). All work on branch `staging`.
 - **Runtime-verified:** resume text extraction (PDF via pdf-parse v2 + DOCX
   via mammoth return clean text; unsupported types raise
   `UnsupportedResumeError`).
+- **First live run (2026-07-28) surfaced three bugs, now fixed** — see the
+  dated entry in `decisions.md`: PDF upload crashed (pdfjs bundling), creating
+  a second profile crashed (client-reference proxy spread), and editing a
+  profile silently wiped `projects`. Everything else below still stands.
 - **Never runtime-verified against a live MongoDB** — no Docker/mongod in the
   build sandbox (proxy blocks mongo binary downloads). First run needs:
   `.env.local` (see .env.example), `docker compose up -d`, `npm run seed`,

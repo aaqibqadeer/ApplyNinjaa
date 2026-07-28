@@ -4,14 +4,14 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { FilterToggles } from "@/components/filters/FilterToggles";
-import {
-  emptyProfileValues,
-  ProfileForm,
-  type ProfileFormValues,
-} from "@/components/profiles/ProfileForm";
+import { ProfileForm } from "@/components/profiles/ProfileForm";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { APP_NAME } from "@/config/brand";
+import {
+  emptyProfileValues,
+  type ProfileFormValues,
+} from "@/lib/profiles/form-values";
 
 const STEPS = [
   "Welcome",
