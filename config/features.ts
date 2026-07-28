@@ -24,7 +24,7 @@
  */
 
 /** AI providers that can be enabled via the `aiProviders` array flag. */
-export const AI_PROVIDERS = ["anthropic", "openai"] as const;
+export const AI_PROVIDERS = ["anthropic", "openai", "deepseek"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 export interface AuthFeatureFlags {
@@ -36,6 +36,7 @@ export interface AuthFeatureFlags {
   oauth: {
     google: boolean;
     github: boolean;
+    linkedin: boolean;
   };
 }
 
@@ -62,6 +63,11 @@ export interface Features {
   admin: boolean;
   /** Cookie-consent banner (accept/reject, choice stored in a cookie). */
   cookieBanner: boolean;
+  /**
+   * Gmail integration — separate opt-in read-only Gmail OAuth + manual inbox
+   * scans that propose application-status updates. Independent of login OAuth.
+   */
+  gmail: boolean;
   /** Enabled AI providers; empty array means AI is off. */
   aiProviders: AiProvider[];
   /**
@@ -90,6 +96,7 @@ export const features: Features = {
     oauth: {
       google: !!process.env.NEXT_PUBLIC_FEATURE_AUTH_OAUTH_GOOGLE,
       github: !!process.env.NEXT_PUBLIC_FEATURE_AUTH_OAUTH_GITHUB,
+      linkedin: !!process.env.NEXT_PUBLIC_FEATURE_AUTH_OAUTH_LINKEDIN,
     },
   },
   payments: {
@@ -100,6 +107,7 @@ export const features: Features = {
   phoneVerification: !!process.env.NEXT_PUBLIC_FEATURE_PHONE_VERIFICATION,
   admin: !!process.env.NEXT_PUBLIC_FEATURE_ADMIN,
   cookieBanner: !!process.env.NEXT_PUBLIC_FEATURE_COOKIE_BANNER,
+  gmail: !!process.env.NEXT_PUBLIC_FEATURE_GMAIL,
   aiProviders: resolveAiProviders(),
   multiTenant: !!process.env.NEXT_PUBLIC_FEATURE_MULTI_TENANT,
 };
@@ -112,7 +120,8 @@ export const isAnyAuthEnabled: boolean =
   features.auth.emailPassword ||
   features.auth.magicLink ||
   features.auth.oauth.google ||
-  features.auth.oauth.github;
+  features.auth.oauth.github ||
+  features.auth.oauth.linkedin;
 
 /** True when at least one AI provider is enabled. */
 export const isAnyAiEnabled: boolean = features.aiProviders.length > 0;

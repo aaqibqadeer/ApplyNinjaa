@@ -11,8 +11,7 @@
  * Tailwind v4 note: v4 has no `tailwind.config.ts` and cannot import this TS
  * file at build time, so `globals.css` is the hand-mirrored runtime copy of
  * these tokens. Keep the two in sync — see `docs/architecture/theming.md`.
- * Placeholder values below (neutral shadcn palette) are meant to be swapped
- * per-fork.
+ * This fork (ApplyNinjaa) uses a navy/blue professional palette.
  *
  * Colors are stored as raw CSS color strings (oklch) so light/dark are just two
  * value sets for the same token name; the `.dark` class swaps them.
@@ -64,17 +63,23 @@ export interface Theme {
 
 export const theme: Theme = {
   colors: {
-    background: { light: "oklch(1 0 0)", dark: "oklch(0.145 0 0)" },
-    foreground: { light: "oklch(0.145 0 0)", dark: "oklch(0.985 0 0)" },
-    primary: { light: "oklch(0.205 0 0)", dark: "oklch(0.922 0 0)" },
-    primaryForeground: { light: "oklch(0.985 0 0)", dark: "oklch(0.205 0 0)" },
-    secondary: { light: "oklch(0.97 0 0)", dark: "oklch(0.269 0 0)" },
-    secondaryForeground: {
-      light: "oklch(0.205 0 0)",
-      dark: "oklch(0.985 0 0)",
+    background: { light: "oklch(0.99 0.003 250)", dark: "oklch(0.17 0.02 260)" },
+    foreground: { light: "oklch(0.21 0.03 260)", dark: "oklch(0.96 0.008 250)" },
+    primary: { light: "oklch(0.49 0.15 255)", dark: "oklch(0.68 0.13 252)" },
+    primaryForeground: {
+      light: "oklch(0.99 0.003 250)",
+      dark: "oklch(0.17 0.03 260)",
     },
-    muted: { light: "oklch(0.97 0 0)", dark: "oklch(0.269 0 0)" },
-    mutedForeground: { light: "oklch(0.556 0 0)", dark: "oklch(0.708 0 0)" },
+    secondary: { light: "oklch(0.955 0.01 250)", dark: "oklch(0.28 0.025 260)" },
+    secondaryForeground: {
+      light: "oklch(0.3 0.05 260)",
+      dark: "oklch(0.96 0.008 250)",
+    },
+    muted: { light: "oklch(0.955 0.01 250)", dark: "oklch(0.28 0.025 260)" },
+    mutedForeground: {
+      light: "oklch(0.5 0.025 258)",
+      dark: "oklch(0.71 0.02 255)",
+    },
     destructive: {
       light: "oklch(0.577 0.245 27.325)",
       dark: "oklch(0.704 0.191 22.216)",
@@ -83,15 +88,24 @@ export const theme: Theme = {
       light: "oklch(0.985 0 0)",
       dark: "oklch(0.985 0 0)",
     },
-    border: { light: "oklch(0.922 0 0)", dark: "oklch(1 0 0 / 10%)" },
-    input: { light: "oklch(0.922 0 0)", dark: "oklch(1 0 0 / 15%)" },
-    ring: { light: "oklch(0.708 0 0)", dark: "oklch(0.556 0 0)" },
-    card: { light: "oklch(1 0 0)", dark: "oklch(0.205 0 0)" },
-    cardForeground: { light: "oklch(0.145 0 0)", dark: "oklch(0.985 0 0)" },
-    popover: { light: "oklch(1 0 0)", dark: "oklch(0.205 0 0)" },
-    popoverForeground: { light: "oklch(0.145 0 0)", dark: "oklch(0.985 0 0)" },
-    accent: { light: "oklch(0.97 0 0)", dark: "oklch(0.269 0 0)" },
-    accentForeground: { light: "oklch(0.205 0 0)", dark: "oklch(0.985 0 0)" },
+    border: { light: "oklch(0.91 0.015 252)", dark: "oklch(1 0 0 / 12%)" },
+    input: { light: "oklch(0.91 0.015 252)", dark: "oklch(1 0 0 / 16%)" },
+    ring: { light: "oklch(0.49 0.15 255)", dark: "oklch(0.68 0.13 252)" },
+    card: { light: "oklch(1 0 0)", dark: "oklch(0.21 0.025 260)" },
+    cardForeground: {
+      light: "oklch(0.21 0.03 260)",
+      dark: "oklch(0.96 0.008 250)",
+    },
+    popover: { light: "oklch(1 0 0)", dark: "oklch(0.21 0.025 260)" },
+    popoverForeground: {
+      light: "oklch(0.21 0.03 260)",
+      dark: "oklch(0.96 0.008 250)",
+    },
+    accent: { light: "oklch(0.93 0.03 252)", dark: "oklch(0.32 0.045 258)" },
+    accentForeground: {
+      light: "oklch(0.3 0.06 258)",
+      dark: "oklch(0.96 0.008 250)",
+    },
   },
   fonts: {
     // Wired to the Geist fonts loaded in app/layout.tsx; swap per-fork.

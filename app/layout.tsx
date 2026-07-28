@@ -4,11 +4,15 @@ import "./globals.css";
 
 import { CookieBanner } from "@/components/shared/CookieBanner";
 import { Toaster } from "@/components/ui/sonner";
+import { APP_DESCRIPTION, APP_NAME } from "@/config/brand";
 import { env } from "@/config/env.schema";
 
-/** Product name — the one place metadata/titles read it from. */
-const APP_NAME = "ninjakit";
-const APP_DESCRIPTION = "Reusable multi-tenant SaaS boilerplate template.";
+/**
+ * Applies the stored (or system-preferred) theme before hydration so the
+ * first paint is already in the right mode — pairs with
+ * components/shared/ThemeToggle. Must stay inline and tiny.
+ */
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("theme");var d=t?t==="dark":matchMedia("(prefers-color-scheme: dark)").matches;if(d)document.documentElement.classList.add("dark");}catch(e){}})();`;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,6 +61,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
         {children}
         <CookieBanner />

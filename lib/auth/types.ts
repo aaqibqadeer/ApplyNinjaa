@@ -23,7 +23,7 @@ export interface Session {
   role: string | null;
 }
 
-export type OAuthProvider = "google" | "github";
+export type OAuthProvider = "google" | "github" | "linkedin";
 
 export interface SignUpInput {
   email: string;

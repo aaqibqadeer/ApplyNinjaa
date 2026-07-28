@@ -8,6 +8,7 @@ interface OAuthButtonsProps {
 
 const PROVIDERS = [
   { id: "google", label: "Continue with Google" },
+  { id: "linkedin", label: "Continue with LinkedIn" },
   { id: "github", label: "Continue with GitHub" },
 ] as const;
 

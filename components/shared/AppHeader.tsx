@@ -3,10 +3,12 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { AppNav, type AppNavLink } from "@/components/shared/AppNav";
 import { BrandMark } from "@/components/shared/BrandMark";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import {
   WorkspaceSwitcher,
   type WorkspaceOption,
 } from "@/components/shared/WorkspaceSwitcher";
+import { APP_NAME } from "@/config/brand";
 import { features } from "@/config/features";
 import type { Session } from "@/lib/auth/types";
 import { db } from "@/lib/db";
@@ -55,7 +57,7 @@ export async function AppHeader({ session }: AppHeaderProps) {
           className="flex shrink-0 items-center gap-2 font-semibold"
         >
           <BrandMark />
-          <span className="hidden sm:inline">ninjakit</span>
+          <span className="hidden sm:inline">{APP_NAME}</span>
         </Link>
 
         <AppNav links={links} className="hidden md:flex" />
@@ -70,6 +72,7 @@ export async function AppHeader({ session }: AppHeaderProps) {
           <span className="text-muted-foreground hidden text-sm lg:inline">
             {session.user.email}
           </span>
+          <ThemeToggle />
           <LogoutButton />
         </div>
       </div>

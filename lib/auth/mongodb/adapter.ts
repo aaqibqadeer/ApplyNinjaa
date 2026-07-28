@@ -5,7 +5,7 @@
  * user id (users created via magic-link/OAuth simply have no credential row).
  * Sessions: an HS256 JWT (see ../jwt) in an httpOnly cookie. Password-reset and
  * magic-link tokens are stateless signed JWTs (no DB rows). OAuth is a manual
- * authorization-code flow for Google/GitHub.
+ * authorization-code flow for Google/GitHub/LinkedIn.
  *
  * Node-only (mongoose, bcrypt, next/headers). Never import from Edge middleware.
  */
@@ -93,6 +93,16 @@ const OAUTH_PROVIDERS: Record<OAuthProvider, OAuthProviderConfig> = {
     scope: "read:user user:email",
     clientId: () => env.GITHUB_CLIENT_ID,
     clientSecret: () => env.GITHUB_CLIENT_SECRET,
+  },
+  // LinkedIn's OpenID Connect flow — userinfo returns { email, name } like
+  // Google's, so the generic profile parse below covers it.
+  linkedin: {
+    authorizeUrl: "https://www.linkedin.com/oauth/v2/authorization",
+    tokenUrl: "https://www.linkedin.com/oauth/v2/accessToken",
+    userInfoUrl: "https://api.linkedin.com/v2/userinfo",
+    scope: "openid profile email",
+    clientId: () => env.LINKEDIN_CLIENT_ID,
+    clientSecret: () => env.LINKEDIN_CLIENT_SECRET,
   },
 };
 

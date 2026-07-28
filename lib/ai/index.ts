@@ -19,11 +19,13 @@ import { type AiProvider, features } from "@/config/features";
 
 import type { AiAdapter } from "./adapter";
 import { AnthropicAdapter } from "./anthropic/adapter";
+import { DeepSeekAdapter } from "./deepseek/adapter";
 import { OpenAiAdapter } from "./openai/adapter";
 
 const factories: Record<AiProvider, () => AiAdapter> = {
   anthropic: () => new AnthropicAdapter(),
   openai: () => new OpenAiAdapter(),
+  deepseek: () => new DeepSeekAdapter(),
 };
 
 const cache = new Map<AiProvider, AiAdapter>();

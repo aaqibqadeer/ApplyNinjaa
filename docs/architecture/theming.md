@@ -59,4 +59,4 @@ Dark mode is **class-based**. `app/globals.css` declares
 | Radii   | `radii.base` | Base radius; `sm/md/lg/xl` derived in `globals.css`.                                                                                                                                        |
 | Shadows | `shadows.*`  | `sm`, `md`, `lg`.                                                                                                                                                                           |
 
-Placeholder values ship with the neutral shadcn palette — swap per-fork.
+This fork ships the ApplyNinjaa navy/blue palette (professional, LinkedIn-adjacent); both light and dark sets are chromatic blues rather than neutral gray.
