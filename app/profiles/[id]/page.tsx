@@ -23,6 +23,8 @@ function toFormValues(profile: OwnedProfile): ProfileFormValues {
     })),
     education: profile.education,
     projects: profile.projects,
+    customFields: profile.customFields,
+    knowledgeBase: profile.knowledgeBase,
     links: profile.links,
     workAuthorization: profile.workAuthorization ?? null,
     workArrangement: profile.workArrangement ?? null,

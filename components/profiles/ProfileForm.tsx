@@ -14,6 +14,7 @@ import {
   WORK_AUTHORIZATIONS,
 } from "@/lib/db/schema";
 import type {
+  CustomFieldValue,
   EducationValue,
   ExperienceValue,
   ProfileFormValues,
@@ -55,7 +56,11 @@ export interface ProfileFormProps {
  * The EEO section only unlocks behind an explicit, unchecked-by-default
  * consent checkbox; consent off means nothing demographic is submitted.
  */
-export function ProfileForm({ initial, submitLabel, onSubmit }: ProfileFormProps) {
+export function ProfileForm({
+  initial,
+  submitLabel,
+  onSubmit,
+}: ProfileFormProps) {
   const [values, setValues] = useState<ProfileFormValues>(initial);
   const [skillsText, setSkillsText] = useState(initial.skills.join(", "));
   const [eeoConsent, setEeoConsent] = useState(Boolean(initial.eeo?.consent));
@@ -69,7 +74,10 @@ export function ProfileForm({ initial, submitLabel, onSubmit }: ProfileFormProps
     setValues((v) => ({ ...v, [key]: value }));
   }
   function setContact(key: string, value: string) {
-    setValues((v) => ({ ...v, contact: { ...v.contact, [key]: value || null } }));
+    setValues((v) => ({
+      ...v,
+      contact: { ...v.contact, [key]: value || null },
+    }));
   }
   function setLink(key: string, value: string) {
     setValues((v) => ({ ...v, links: { ...v.links, [key]: value || null } }));
@@ -103,10 +111,20 @@ export function ProfileForm({ initial, submitLabel, onSubmit }: ProfileFormProps
       ),
     }));
   }
+  function setCustomField(index: number, patch: Partial<CustomFieldValue>) {
+    setValues((v) => ({
+      ...v,
+      customFields: v.customFields.map((f, i) =>
+        i === index ? { ...f, ...patch } : f,
+      ),
+    }));
+  }
   function setProject(index: number, patch: Partial<ProjectValue>) {
     setValues((v) => ({
       ...v,
-      projects: v.projects.map((p, i) => (i === index ? { ...p, ...patch } : p)),
+      projects: v.projects.map((p, i) =>
+        i === index ? { ...p, ...patch } : p,
+      ),
     }));
   }
 
@@ -232,7 +250,9 @@ export function ProfileForm({ initial, submitLabel, onSubmit }: ProfileFormProps
                   <Input
                     id={`exp-title-${i}`}
                     value={exp.title}
-                    onChange={(e) => setExperience(i, { title: e.target.value })}
+                    onChange={(e) =>
+                      setExperience(i, { title: e.target.value })
+                    }
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -500,9 +520,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit }: ProfileFormProps
             <Select
               id="pref-auth"
               value={values.workAuthorization ?? ""}
-              onChange={(e) =>
-                set("workAuthorization", e.target.value || null)
-              }
+              onChange={(e) => set("workAuthorization", e.target.value || null)}
             >
               <option value="">Select…</option>
               {WORK_AUTHORIZATIONS.map((v) => (
@@ -533,9 +551,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit }: ProfileFormProps
               id="pref-salary"
               placeholder="$120,000"
               value={values.salaryExpectation ?? ""}
-              onChange={(e) =>
-                set("salaryExpectation", e.target.value || null)
-              }
+              onChange={(e) => set("salaryExpectation", e.target.value || null)}
             />
           </div>
           <fieldset className="flex flex-col gap-1.5">
@@ -564,6 +580,90 @@ export function ProfileForm({ initial, submitLabel, onSubmit }: ProfileFormProps
         </div>
       </section>
 
+      <section>
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Saved answers</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              set("customFields", [
+                ...values.customFields,
+                { label: "", value: "" },
+              ])
+            }
+          >
+            Add answer
+          </Button>
+        </div>
+        <p className="text-muted-foreground mb-3 text-xs">
+          Questions you answer over and over. Quick Fill matches these by label
+          before anything else, so a saved answer always wins over a guess — and
+          they cost no AI actions.
+        </p>
+        <div className="flex flex-col gap-3">
+          {values.customFields.map((field, i) => (
+            <div
+              key={i}
+              className="border-border grid grid-cols-1 gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_2fr_auto]"
+            >
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`custom-label-${i}`}>Question</Label>
+                <Input
+                  id={`custom-label-${i}`}
+                  placeholder="Years of experience"
+                  value={field.label}
+                  onChange={(e) => setCustomField(i, { label: e.target.value })}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`custom-value-${i}`}>Answer</Label>
+                <Input
+                  id={`custom-value-${i}`}
+                  placeholder="6"
+                  value={field.value}
+                  onChange={(e) => setCustomField(i, { value: e.target.value })}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    set(
+                      "customFields",
+                      values.customFields.filter((_, j) => j !== i),
+                    )
+                  }
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <Label htmlFor="profile-knowledge">Background notes</Label>
+        <p className="text-muted-foreground -mt-1 text-xs">
+          Anything you&rsquo;d want an assistant to know when writing an answer
+          for you — motivations, context on a career gap, what you&rsquo;re
+          looking for. Used by AI Fill for open-ended questions; never sent
+          anywhere else.
+        </p>
+        <Textarea
+          id="profile-knowledge"
+          rows={6}
+          maxLength={10000}
+          value={values.knowledgeBase}
+          onChange={(e) => set("knowledgeBase", e.target.value)}
+          placeholder="I'm moving from consulting into product engineering because…"
+        />
+      </section>
+
       <section className="border-border rounded-lg border p-4">
         <label className="flex items-start gap-3">
           <Checkbox
@@ -577,12 +677,11 @@ export function ProfileForm({ initial, submitLabel, onSubmit }: ProfileFormProps
             </span>
             <span className="text-muted-foreground mt-1 block text-xs">
               Many US applications include voluntary self-identification
-              questions (gender, race/ethnicity, veteran and disability
-              status). If you consent, we store your answers{" "}
-              <strong>encrypted</strong> and use them only to fill those
-              questions for you. This is entirely optional — leaving it off
-              never affects your applications, and you can clear the answers
-              at any time.
+              questions (gender, race/ethnicity, veteran and disability status).
+              If you consent, we store your answers <strong>encrypted</strong>{" "}
+              and use them only to fill those questions for you. This is
+              entirely optional — leaving it off never affects your
+              applications, and you can clear the answers at any time.
             </span>
           </span>
         </label>

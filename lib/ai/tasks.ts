@@ -149,14 +149,22 @@ ${JSON.stringify({
     workArrangement: profile.workArrangement,
     employmentTypes: profile.employmentTypes,
     salaryExpectation: profile.salaryExpectation,
+    // The user's own answers to recurring questions — authoritative.
+    savedAnswers: profile.customFields,
   })}
-
+${
+  profile.knowledgeBase
+    ? `\nBackground notes the applicant wrote about themselves (use for open-ended questions only; never contradict the structured profile above):\n${profile.knowledgeBase.slice(0, 4000)}\n`
+    : ""
+}
 Form fields (JSON array; "id" identifies each field):
 ${JSON.stringify(fields.slice(0, 80))}
 
 Return {"mappings":[{"fieldId","value","confidence"}]} with one entry PER field:
 - value: the exact string to type/select. For fields with "options", value MUST be one of the options verbatim (pick the closest match) or null.
 - confidence: "high" only when the profile clearly provides the answer; otherwise "low".
+- If a saved answer's label matches the field, use its value VERBATIM and mark it "high" — the applicant wrote it themselves, so never paraphrase or improve it.
+- For open-ended questions ("why do you want to work here?", "tell us about yourself"), you may compose an answer from the background notes, in the applicant's own first person. Only mark it "high" when the notes genuinely cover the question.
 - Use null value + "low" when unsure — NEVER invent data (especially for legal/veteran/disability/citizenship questions not present in the profile).`;
   return generateJson(fieldMappingSchema, system, prompt);
 }

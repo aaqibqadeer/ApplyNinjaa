@@ -472,6 +472,17 @@ export const profileProjectSchema = z.object({
 });
 export type ProfileProject = z.infer<typeof profileProjectSchema>;
 
+/**
+ * A user-authored question/answer pair, e.g. "Why do you want to work here?"
+ * → their standard answer. Quick Fill matches these by label BEFORE any
+ * heuristic, because a hand-written answer always beats a guess.
+ */
+export const profileCustomFieldSchema = z.object({
+  label: z.string(),
+  value: z.string(),
+});
+export type ProfileCustomField = z.infer<typeof profileCustomFieldSchema>;
+
 export const profileLinksSchema = z.object({
   linkedin: z.string().nullable().optional(),
   github: z.string().nullable().optional(),
@@ -508,6 +519,9 @@ export const profileSchema = z.object({
   experience: z.array(profileExperienceSchema).default([]),
   education: z.array(profileEducationSchema).default([]),
   projects: z.array(profileProjectSchema).default([]),
+  customFields: z.array(profileCustomFieldSchema).default([]),
+  /** Free-text background the AI may draw on for open-ended questions. */
+  knowledgeBase: z.string().default(""),
   links: profileLinksSchema.default({}),
   workAuthorization: workAuthorizationSchema.nullable().optional(),
   workArrangement: workArrangementSchema.nullable().optional(),
