@@ -66,7 +66,7 @@ export default function RootLayout({
       </head>
       <body className="flex min-h-full flex-col">
         {children}
-        <CookieBanner />
+        <CookieBanner policyHref="/cookie-policy" />
         <Toaster />
       </body>
     </html>

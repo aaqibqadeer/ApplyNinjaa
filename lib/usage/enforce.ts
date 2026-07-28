@@ -9,6 +9,7 @@
  */
 
 import type { Session } from "@/lib/auth/types";
+import { sendAiLimitReachedEmail } from "@/lib/email/templates";
 import { getEffectivePlan, type EffectivePlan } from "@/lib/payments/access";
 
 import {
@@ -74,6 +75,11 @@ export async function enforceAiQuota(session: Session): Promise<QuotaResult> {
   if (used > cap) {
     await decrementMonthlyAiUsage(session.user.id, period);
     throw new UsageLimitError(cap, cap, effective.plan.slug);
+  }
+  if (used === cap) {
+    // The atomic counter hits == cap exactly once per period, so this fires
+    // one transactional limit warning, never a stream of them. Best-effort.
+    sendAiLimitReachedEmail({ email: session.user.email }, cap).catch(() => {});
   }
   return { used, cap, effective };
 }

@@ -22,6 +22,11 @@ const PUBLIC_PATHS = [
   "/signup",
   "/reset-password",
   "/forgot-password",
+  // Legal pages must be readable without an account (linked from the footer
+  // and the cookie banner).
+  "/privacy",
+  "/terms",
+  "/cookie-policy",
 ];
 
 function isPublicPath(pathname: string): boolean {
@@ -32,6 +37,8 @@ function isPublicPath(pathname: string): boolean {
   // Stripe webhooks are authenticated by signature, not a session cookie — they
   // must bypass the login redirect (Phase 5).
   if (pathname === "/api/payments/webhook") return true;
+  // One-click unsubscribe links must work without a session (CAN-SPAM).
+  if (pathname === "/api/email/unsubscribe") return true;
   // Extension traffic authenticates with a Bearer token, not the cookie — pass
   // it through so the handler's authorizeApi() returns 401 JSON instead of the
   // middleware 307-ing to /login (same precedent as the Stripe webhook).

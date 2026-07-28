@@ -52,7 +52,8 @@ catalog reflects _all_ reusable UI, not just custom components.
 | `BrandMark`         | `components/shared/BrandMark.tsx`         | Token-only logomark (shuriken glyph on a `primary` tile). Pair with the wordmark; recolors with the theme.                                                                                         | `className?`                                                                 | `SiteHeader`, `SiteFooter`, `AppHeader`                          |
 | `ThemeToggle`       | `components/shared/ThemeToggle.tsx`       | Light/dark toggle — swaps the `dark` class on `<html>` and persists to localStorage; initial theme applied pre-hydration by the inline script in `app/layout.tsx`. Icons swap via CSS `dark:` variant (hydration-safe). | _(none)_                                                                     | `SiteHeader`, `AppHeader`                                        |
 | `SiteHeader`        | `components/shared/SiteHeader.tsx`        | Public marketing header (sticky, translucent). Shows Log in / Get started, or a Dashboard link when `signedIn`.                                                                                    | `signedIn?`                                                                  | `app/page.tsx`                                                   |
-| `SiteFooter`        | `components/shared/SiteFooter.tsx`        | Minimal public footer for marketing/legal pages (brand + Log in / Get started links + year).                                                                                                       | _(none)_                                                                     | `app/page.tsx`                                                   |
+| `SiteFooter`        | `components/shared/SiteFooter.tsx`        | Public footer with legal links (Privacy / Terms / Cookie Policy) + year.                                                                                                                           | _(none)_                                                                     | `app/page.tsx`, legal pages                                      |
+| `LegalPage`         | `components/shared/LegalPage.tsx`         | Shell for public legal documents — header/footer + styled article column.                                                                                                                          | `title`, `updated`                                                           | `/privacy`, `/terms`, `/cookie-policy`                           |
 | `AppHeader`         | `components/shared/AppHeader.tsx`         | Global signed-in nav bar. Server component: derives links from flags + role, mounts `WorkspaceSwitcher` (multi-tenant) + `LogoutButton`.                                                           | `session`                                                                    | `app/dashboard`, `app/settings/organization`, `app/admin/layout` |
 | `AppNav`            | `components/shared/AppNav.tsx`            | Client nav link row with active-route highlighting (`usePathname`). Links computed server-side and passed in.                                                                                      | `links: {href,label}[]`, `className?`                                        | `AppHeader`                                                      |
 
@@ -64,11 +65,15 @@ here the first time they're needed, with an entry added in the same commit.
 Feature-scoped (§9.4): reusable within the public marketing surface. Presentational
 server components; content lives in local data arrays a fork edits in place.
 
-| Component         | Location                                   | Purpose                                                                           | Key Props | Used In        |
-| ----------------- | ------------------------------------------ | --------------------------------------------------------------------------------- | --------- | -------------- |
-| `Hero`            | `components/marketing/Hero.tsx`            | Landing hero — badge, headline, sub-headline, Log in / Explore CTAs, stack strip. | _(none)_  | `app/page.tsx` |
-| `FeatureShowcase` | `components/marketing/FeatureShowcase.tsx` | Grid of headline capabilities (`#features` anchor); inline SVG icons.             | _(none)_  | `app/page.tsx` |
-| `CtaSection`      | `components/marketing/CtaSection.tsx`      | Closing "built on" stack strip (`#stack` anchor) + final Log in CTA band.         | _(none)_  | `app/page.tsx` |
+| Component        | Location                                  | Purpose                                                                                          | Key Props                | Used In        |
+| ---------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------ | -------------- |
+| `Hero`           | `components/marketing/Hero.tsx`           | Landing hero — badge, headline, CTAs, product-screenshot placeholder, audience strip.            | _(none)_                 | `app/page.tsx` |
+| `HowItWorks`     | `components/marketing/HowItWorks.tsx`     | 4-step "how it works" section (`#how-it-works` anchor).                                          | _(none)_                 | `app/page.tsx` |
+| `PricingSection` | `components/marketing/PricingSection.tsx` | Public pricing cards from the plans table with a monthly/annual toggle (`#pricing` anchor).      | `plans`, `annualBilling` | `app/page.tsx` |
+| `Testimonials`   | `components/marketing/Testimonials.tsx`   | Testimonial grid — placeholder quotes, real structure.                                           | _(none)_                 | `app/page.tsx` |
+
+(The template's `FeatureShowcase`/`CtaSection` were removed with the
+ApplyNinjaa landing rework.)
 
 ## `/components/admin` — admin panel components (Phase 7)
 

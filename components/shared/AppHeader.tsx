@@ -36,6 +36,7 @@ export async function AppHeader({ session }: AppHeaderProps) {
     ...(features.payments.enabled
       ? [{ href: "/settings/billing", label: "Billing" }]
       : []),
+    { href: "/settings/account", label: "Account" },
     ...(features.multiTenant && isOrgAdmin
       ? [{ href: "/settings/organization", label: "Organization" }]
       : []),

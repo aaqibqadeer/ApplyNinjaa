@@ -12,8 +12,8 @@ interface SiteHeaderProps {
 
 /** In-page anchors for the marketing sections rendered on the landing page. */
 const MARKETING_LINKS = [
-  { href: "#features", label: "Features" },
-  { href: "#stack", label: "Stack" },
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#pricing", label: "Pricing" },
 ] as const;
 
 /**
