@@ -14,6 +14,8 @@ import {
   type Application,
 } from "@/lib/db";
 
+import { detectPlatform, hostOf } from "./platform";
+
 class ApplicationError extends Error {
   readonly status: number;
   constructor(message: string, status: number) {
@@ -56,13 +58,18 @@ export async function trackApplication(
   if (!session.organizationId) {
     throw new ApplicationError("No active organization", 400);
   }
+  const domain = input.domain ?? hostOf(input.url);
   return db.createApplication({
     organizationId: session.organizationId,
     userId: session.user.id,
     company: input.company,
     roleTitle: input.roleTitle,
     url: input.url ?? null,
-    domain: input.domain ?? null,
+    domain,
+    // Derived here rather than trusted from the client — the extension and
+    // the dashboard both create rows and would otherwise disagree.
+    platform: detectPlatform(input.url ?? domain),
+    additionalLinks: [],
     status: input.status ?? "Applied",
     profileId: input.profileId ?? null,
     fitScore: input.fitScore ?? null,
@@ -91,6 +98,45 @@ export async function updateApplication(
 ): Promise<Application> {
   await requireOwned(session, id);
   return db.updateApplication(id, patch);
+}
+
+export const retrackSchema = z.object({
+  url: z.string().min(1).max(2000),
+});
+
+/**
+ * Attach another page to an application the user already tracks — the same
+ * job seen on a second site, or the post-submit confirmation page.
+ *
+ * The first-tracked link stays the primary `url`/`domain` so existing rows
+ * and every dashboard read keep working unchanged; extras accumulate in
+ * `additionalLinks`. Re-adding a URL that's already on the row (primary or
+ * extra) is a no-op rather than an error, because the natural user action is
+ * to hit Re-track again on a page they already attached.
+ */
+export async function retrackApplication(
+  session: Session,
+  id: string,
+  url: string,
+): Promise<Application> {
+  const application = await requireOwned(session, id);
+  const known = new Set(
+    [application.url, ...application.additionalLinks.map((l) => l.url)].filter(
+      (u): u is string => Boolean(u),
+    ),
+  );
+  if (known.has(url)) return application;
+  return db.updateApplication(id, {
+    additionalLinks: [
+      ...application.additionalLinks,
+      {
+        url,
+        domain: hostOf(url),
+        platform: detectPlatform(url),
+        addedAt: new Date(),
+      },
+    ],
+  });
 }
 
 export async function deleteApplication(

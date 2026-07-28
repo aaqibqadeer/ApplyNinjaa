@@ -581,6 +581,20 @@ export type ApplicationFilterResult = z.infer<
   typeof applicationFilterResultSchema
 >;
 
+/**
+ * One extra page attached to an already-tracked application — the same job
+ * seen on a second site (LinkedIn listing → company careers page), or the
+ * confirmation page after submitting. The FIRST link tracked stays the
+ * primary `url`/`domain` so existing rows and the dashboard keep working.
+ */
+export const applicationLinkSchema = z.object({
+  url: z.string(),
+  domain: z.string().nullable().optional(),
+  platform: z.string().nullable().optional(),
+  addedAt: z.coerce.date(),
+});
+export type ApplicationLink = z.infer<typeof applicationLinkSchema>;
+
 export const applicationSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
@@ -590,6 +604,9 @@ export const applicationSchema = z.object({
   roleTitle: z.string().min(1),
   url: z.string().nullable().optional(),
   domain: z.string().nullable().optional(),
+  /** Derived from the hostname, e.g. "LinkedIn" | "Greenhouse" | "Company site". */
+  platform: z.string().nullable().optional(),
+  additionalLinks: z.array(applicationLinkSchema).default([]),
   status: applicationStatusSchema.default("Applied"),
   /** 0-100. AI-generated but user-editable — the user's value wins. */
   fitScore: z.number().min(0).max(100).nullable().optional(),

@@ -20,11 +20,18 @@ import {
 } from "@/components/ui/table";
 import { APPLICATION_STATUSES } from "@/lib/db/schema";
 
+interface AdditionalLink {
+  url: string;
+  platform: string | null;
+}
+
 interface Row {
   id: string;
   company: string;
   roleTitle: string;
   url: string | null;
+  platform: string | null;
+  additionalLinks: AdditionalLink[];
   status: string;
   fitScore: number | null;
   fitReasoning: string | null;
@@ -151,7 +158,17 @@ export function ApplicationsTable({
     const esc = (v: string | number | null) =>
       `"${String(v ?? "").replaceAll('"', '""')}"`;
     const lines = [
-      ["Company", "Role", "Status", "Fit Score", "Date Applied", "URL", "Notes"]
+      [
+        "Company",
+        "Role",
+        "Status",
+        "Fit Score",
+        "Date Applied",
+        "Platform",
+        "URL",
+        "Other links",
+        "Notes",
+      ]
         .map(esc)
         .join(","),
       ...source.map((r) =>
@@ -161,7 +178,9 @@ export function ApplicationsTable({
           r.status,
           r.fitScore,
           new Date(r.appliedAt).toISOString().slice(0, 10),
+          r.platform,
           r.url,
+          r.additionalLinks.map((l) => l.url).join(" | "),
           r.notes,
         ]
           .map(esc)
@@ -347,10 +366,25 @@ export function ApplicationsTable({
                         target="_blank"
                         rel="noreferrer"
                         className="text-primary shrink-0 text-xs hover:underline"
-                        aria-label="Open job posting"
+                        aria-label={
+                          row.platform
+                            ? `Open job posting on ${row.platform}`
+                            : "Open job posting"
+                        }
+                        title={row.platform ?? undefined}
                       >
                         ↗
                       </a>
+                    )}
+                    {row.additionalLinks.length > 0 && (
+                      <span
+                        className="text-muted-foreground shrink-0 text-xs"
+                        title={row.additionalLinks
+                          .map((l) => l.platform ?? l.url)
+                          .join("\n")}
+                      >
+                        +{row.additionalLinks.length}
+                      </span>
                     )}
                   </div>
                 </TableCell>

@@ -159,6 +159,64 @@ export async function getProfile(
   return toOwned(await requireOwned(session, id));
 }
 
+/**
+ * The whitelisted payload the extension's offline Quick Fill matches against.
+ *
+ * **This ships decrypted EEO answers to the popup** — a deliberate, explicit
+ * product decision by the owner, and the ONE place the "EEO never leaves the
+ * server" rule is relaxed. (`listProfileSummaries` still withholds them; the
+ * picker has no reason to know.) The justification is that EEO self-ID
+ * questions are exactly the repetitive ones users want filled without
+ * spending an AI action. Consequences to keep in mind before copying this
+ * pattern: the values sit in popup memory for the life of the popup, and any
+ * future extension code can read them.
+ *
+ * Everything here is a whitelist, never a spread of the profile — new profile
+ * fields must be added deliberately rather than leaking by default.
+ */
+export interface ProfileFillData {
+  id: string;
+  name: string;
+  contact: Profile["contact"];
+  links: Profile["links"];
+  workAuthorization: string | null;
+  workArrangement: string | null;
+  employmentTypes: string[];
+  salaryExpectation: string | null;
+  customFields: Profile["customFields"];
+  /** Most recent role/school only — forms ask for "current", not a history. */
+  currentTitle: string | null;
+  currentCompany: string | null;
+  latestSchool: string | null;
+  latestDegree: string | null;
+  eeo: DecryptedEeo | null;
+}
+
+export async function getProfileFillData(
+  session: Session,
+  id: string,
+): Promise<ProfileFillData> {
+  const profile = await requireOwned(session, id);
+  const latestRole = profile.experience.find((e) => e.current) ?? profile.experience[0];
+  const latestSchool = profile.education[0];
+  return {
+    id: profile.id,
+    name: profile.name,
+    contact: profile.contact,
+    links: profile.links,
+    workAuthorization: profile.workAuthorization ?? null,
+    workArrangement: profile.workArrangement ?? null,
+    employmentTypes: profile.employmentTypes,
+    salaryExpectation: profile.salaryExpectation ?? null,
+    customFields: profile.customFields,
+    currentTitle: latestRole?.title ?? null,
+    currentCompany: latestRole?.company ?? null,
+    latestSchool: latestSchool?.school ?? null,
+    latestDegree: latestSchool?.degree ?? null,
+    eeo: decryptEeo(profile.userId, profile.eeo),
+  };
+}
+
 export async function createProfile(
   session: Session,
   input: ProfileInput,

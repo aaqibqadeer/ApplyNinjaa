@@ -37,6 +37,7 @@ import {
   type AdminAction,
   type Application,
   type ApplicationFilterResult,
+  type ApplicationLink,
   type ApplicationStatus,
   type AppSettings,
   type GmailScan,
@@ -216,6 +217,8 @@ interface ApplicationDoc {
   role_title: string;
   url: string | null;
   domain: string | null;
+  platform: string | null;
+  additional_links: ApplicationLink[];
   status: string;
   fit_score: number | null;
   fit_reasoning: string | null;
@@ -507,6 +510,8 @@ const applicationSchema = new Schema<ApplicationDoc>(
     role_title: { type: String, required: true },
     url: { type: String, default: null },
     domain: { type: String, default: null },
+    platform: { type: String, default: null },
+    additional_links: { type: Schema.Types.Mixed, default: [] },
     status: { type: String, required: true, default: "Applied" },
     fit_score: { type: Number, default: null },
     fit_reasoning: { type: String, default: null },
@@ -816,6 +821,8 @@ function toApplication(doc: ApplicationDoc): Application {
     roleTitle: doc.role_title,
     url: doc.url ?? null,
     domain: doc.domain ?? null,
+    platform: doc.platform ?? null,
+    additionalLinks: doc.additional_links ?? [],
     status: doc.status as Application["status"],
     fitScore: doc.fit_score ?? null,
     fitReasoning: doc.fit_reasoning ?? null,
@@ -1556,6 +1563,8 @@ export class MongoAdapter implements DatabaseAdapter {
       role_title: parsed.roleTitle,
       url: parsed.url ?? null,
       domain: parsed.domain ?? null,
+      platform: parsed.platform ?? null,
+      additional_links: parsed.additionalLinks,
       status: parsed.status,
       fit_score: parsed.fitScore ?? null,
       fit_reasoning: parsed.fitReasoning ?? null,
@@ -1597,6 +1606,9 @@ export class MongoAdapter implements DatabaseAdapter {
     if (patch.roleTitle !== undefined) update.role_title = patch.roleTitle;
     if (patch.url !== undefined) update.url = patch.url ?? null;
     if (patch.domain !== undefined) update.domain = patch.domain ?? null;
+    if (patch.platform !== undefined) update.platform = patch.platform ?? null;
+    if (patch.additionalLinks !== undefined)
+      update.additional_links = patch.additionalLinks;
     if (patch.status !== undefined) update.status = patch.status;
     if (patch.fitScore !== undefined) update.fit_score = patch.fitScore ?? null;
     if (patch.fitReasoning !== undefined)
