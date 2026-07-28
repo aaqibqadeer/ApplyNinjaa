@@ -48,6 +48,15 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   if (isPublicPath(pathname)) return response;
 
+  // Bearer-authenticated API traffic (Chrome extension) skips the login
+  // redirect — every handler still enforces auth itself via authorizeApi().
+  if (
+    pathname.startsWith("/api/") &&
+    request.headers.get("authorization")?.toLowerCase().startsWith("bearer ")
+  ) {
+    return response;
+  }
+
   if (!isAuthenticated) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = LOGIN_PATH;
