@@ -75,6 +75,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       filterResults,
       fitScore: Math.round(data.fitScore),
       fitReasoning: data.fitReasoning,
+      company: data.company,
+      roleTitle: data.roleTitle,
       usage: { used: quota.used, cap: quota.cap },
     });
   } catch (error) {

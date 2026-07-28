@@ -172,6 +172,9 @@ export const jobAnalysisSchema = z.object({
   ),
   fitScore: z.number().min(0).max(100),
   fitReasoning: z.string(),
+  /** For the one-click Track button. */
+  company: z.string().nullable().default(null),
+  roleTitle: z.string().nullable().default(null),
 });
 export type JobAnalysis = z.infer<typeof jobAnalysisSchema>;
 
@@ -204,13 +207,15 @@ ${clip(jobText, 16_000)}
 Filters (JSON array):
 ${JSON.stringify(filters.map((f) => ({ id: f.id, label: f.label, guidance: f.description })))}
 
-Return {"results":[{"filterId","verdict"}], "fitScore", "fitReasoning"}:
+Return {"results":[{"filterId","verdict"}], "fitScore", "fitReasoning", "company", "roleTitle"}:
 - one results entry per filter; verdict is exactly "Yes", "No", or "Neutral"
   ("Yes" when the posting clearly satisfies/asserts the filter, "No" when it
   clearly contradicts it, "Neutral" when the posting doesn't say),
 - fitScore: integer 0-100 (skills/experience/seniority match vs the profile;
   ignore demographics),
-- fitReasoning: ONE sentence explaining the score.`;
+- fitReasoning: ONE sentence explaining the score,
+- company/roleTitle: the hiring company and job title from the posting (null
+  when not identifiable).`;
   return generateJson(jobAnalysisSchema, system, prompt);
 }
 
