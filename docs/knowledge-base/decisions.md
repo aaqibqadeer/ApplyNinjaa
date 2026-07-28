@@ -48,6 +48,13 @@
 - **Plan slugs are create-only.** Code finds plans by slug (`free`, `pro`) —
   names/prices are admin-editable, slugs never change after creation (admin
   PATCH omits slug by schema).
+- **pdf-parse is v2, not v1.** Use the `PDFParse` class from the package root
+  (`new PDFParse({ data })` → `getText()` → **`destroy()`**, or every upload
+  leaks a pdf.js worker). Do NOT reach for the widely-copied v1 workaround
+  `import pdf from "pdf-parse/lib/pdf-parse.js"` — v2's exports map rejects
+  it and the failure surfaces only at `next build`, not at typecheck. Join
+  `result.pages[].text` yourself; the concatenated `result.text` interleaves
+  `-- 1 of N --` page markers that would read as resume content to the model.
 
 ## 2026-07-19 — Phase 10: docs finalization (template v1.0.0)
 

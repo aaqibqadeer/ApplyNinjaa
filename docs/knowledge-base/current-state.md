@@ -71,13 +71,21 @@ H4-EAD). All work on branch `staging`.
 
 ## Verification status
 
-- `typecheck` + `lint` green; `next build` compiles (SKIP_ENV_VALIDATION).
+- `npm run typecheck`, `npm run lint`, and `next build` all pass (the latter
+  with `SKIP_ENV_VALIDATION=1`); `npm run build:extension` produces
+  `extension/dist` with a correctly substituted `manifest.json`.
+- **Runtime-verified:** resume text extraction (PDF via pdf-parse v2 + DOCX
+  via mammoth return clean text; unsupported types raise
+  `UnsupportedResumeError`).
 - **Never runtime-verified against a live MongoDB** — no Docker/mongod in the
   build sandbox (proxy blocks mongo binary downloads). First run needs:
   `.env.local` (see .env.example), `docker compose up -d`, `npm run seed`,
   smoke: signup → verify (console link) → onboarding → extension → admin.
+  Everything touching the DB (all CRUD, quotas, trials, admin, Gmail) is
+  therefore unexercised — treat the first live run as the real test pass.
 - Stripe/DeepSeek/Google/LinkedIn/Resend flows need real keys (names in
-  .env.example) — none were available here.
+  .env.example) — none were available here, so no AI/payment/email call has
+  ever actually executed.
 
 ## Deferred / rough edges
 
