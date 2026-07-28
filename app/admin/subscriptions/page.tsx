@@ -12,18 +12,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { features } from "@/config/features";
-import { requireSuperAdmin } from "@/lib/auth/roles";
+import { requirePlatformStaff } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { payments } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Cross-org subscription list with cancel + refund — super-admin only (§15).
+ * Cross-user subscription list — refunds for platform staff, cancel for super
+ * admins only (§15, product spec §9).
  * 404s when payments is off (subscriptions only exist with payments).
  */
 export default async function AdminSubscriptionsPage() {
-  await requireSuperAdmin();
+  const session = await requirePlatformStaff();
   if (!features.payments.enabled) notFound();
 
   const subscriptions = await db.listSubscriptions();
@@ -62,7 +63,7 @@ export default async function AdminSubscriptionsPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <SubscriptionsTable rows={rows} />
+        <SubscriptionsTable rows={rows} isSuperAdmin={session.user.isSuperAdmin} />
       </CardContent>
     </Card>
   );

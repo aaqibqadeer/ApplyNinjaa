@@ -6,35 +6,35 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 export interface AdminNavProps {
-  isOrgAdmin: boolean;
   isSuperAdmin: boolean;
-  multiTenant: boolean;
+  isSupportAdmin: boolean;
   paymentsEnabled: boolean;
 }
 
-/** Tab nav for the admin panel; tabs show per the viewer's tier + flags. */
+/**
+ * Tab nav for the platform admin panel. Support admins see the view/refund
+ * surface (Users, Subscriptions); everything else is super-admin. Hiding tabs
+ * here is cosmetic — every page and route enforces its own guard.
+ */
 export function AdminNav({
-  isOrgAdmin,
   isSuperAdmin,
-  multiTenant,
+  isSupportAdmin,
   paymentsEnabled,
 }: AdminNavProps) {
   const pathname = usePathname();
+  const staff = isSuperAdmin || isSupportAdmin;
 
   const links = [
-    { href: "/admin", label: "Overview", show: true },
-    { href: "/admin/users", label: "Users", show: isOrgAdmin },
-    {
-      href: "/admin/organizations",
-      label: "Organizations",
-      show: isOrgAdmin && multiTenant,
-    },
-    { href: "/admin/plans", label: "Plans", show: isSuperAdmin },
+    { href: "/admin", label: "Overview", show: staff },
+    { href: "/admin/users", label: "Users", show: staff },
     {
       href: "/admin/subscriptions",
       label: "Subscriptions",
-      show: isSuperAdmin && paymentsEnabled,
+      show: staff && paymentsEnabled,
     },
+    { href: "/admin/plans", label: "Plans", show: isSuperAdmin },
+    { href: "/admin/filters", label: "Filters", show: isSuperAdmin },
+    { href: "/admin/audit", label: "Audit log", show: isSuperAdmin },
     { href: "/admin/settings", label: "Settings", show: isSuperAdmin },
   ].filter((link) => link.show);
 

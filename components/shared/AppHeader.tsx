@@ -38,7 +38,9 @@ export async function AppHeader({ session }: AppHeaderProps) {
     ...(features.multiTenant && isOrgAdmin
       ? [{ href: "/settings/organization", label: "Organization" }]
       : []),
-    ...(features.admin && (isOrgAdmin || isSuperAdmin)
+    // Platform staff only — org-admin no longer opens the (platform) admin
+    // panel in this fork; see app/admin/layout.tsx.
+    ...(features.admin && (isSuperAdmin || session.user.isSupportAdmin)
       ? [{ href: "/admin", label: "Admin" }]
       : []),
   ];

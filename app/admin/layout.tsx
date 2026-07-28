@@ -6,14 +6,16 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { features } from "@/config/features";
 import { requireAuth } from "@/lib/auth/server";
-import { ORG_ROLES } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Admin panel shell. Gated on the `admin` flag (404 when off) and entered by an
- * **org admin OR a platform super-admin** — the two tiers stay distinct (§14):
- * org-admin tabs and super-admin tabs each enforce their own guard on the page.
+ * Platform admin shell. Gated on the `admin` flag (404 when off) and entered
+ * ONLY by platform staff — super admins (full access) or support admins
+ * (view users, refunds). In this fork every user is org-admin of their own
+ * silent default org (§1.3), so the template's org-admin entry would admit
+ * everyone; org roles deliberately do NOT open this panel (§14). Each page
+ * still enforces its own tier guard.
  */
 export default async function AdminLayout({
   children,
@@ -23,9 +25,9 @@ export default async function AdminLayout({
   if (!features.admin) notFound();
 
   const session = await requireAuth();
-  const isOrgAdmin = session.role === ORG_ROLES.admin;
   const isSuperAdmin = session.user.isSuperAdmin;
-  if (!isOrgAdmin && !isSuperAdmin) notFound();
+  const isSupportAdmin = session.user.isSupportAdmin;
+  if (!isSuperAdmin && !isSupportAdmin) notFound();
 
   return (
     <>
@@ -34,14 +36,14 @@ export default async function AdminLayout({
         <div>
           <h1 className="text-2xl font-semibold">Admin</h1>
           <p className="text-muted-foreground text-sm">
-            Manage your workspace
-            {isSuperAdmin ? " and platform billing" : ""}.
+            {isSuperAdmin
+              ? "Platform administration."
+              : "Support tools — users and refunds."}
           </p>
         </div>
         <AdminNav
-          isOrgAdmin={isOrgAdmin}
           isSuperAdmin={isSuperAdmin}
-          multiTenant={features.multiTenant}
+          isSupportAdmin={isSupportAdmin}
           paymentsEnabled={features.payments.enabled}
         />
         <div>{children}</div>

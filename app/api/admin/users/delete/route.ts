@@ -3,23 +3,21 @@ import { z } from "zod";
 
 import { features } from "@/config/features";
 import { logAdminAction } from "@/lib/admin/audit";
+import { softDeleteUser } from "@/lib/admin/users";
 import { authErrorResponse, authorize } from "@/lib/auth/roles";
-import { db } from "@/lib/db";
-import { SUBSCRIPTION_STATUSES } from "@/lib/db/schema";
-import { payments } from "@/lib/payments";
 
 const schema = z.object({
-  subscriptionId: z.string().min(1),
-  stripeSubscriptionId: z.string().nullish(),
+  userId: z.string().min(1),
   reason: z.string().min(3, "A reason is required"),
 });
 
 /**
- * Cancel any subscription (super-admin only — distinct from ban/suspend; the
- * account keeps working and drops to Free). Reason is mandatory and audited.
+ * Trigger full account deletion (super-admin only — explicitly NOT available
+ * to support admins). Starts the 30-day recoverable soft-delete window; the
+ * hard-delete script permanently removes PII afterwards.
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!features.admin || !features.payments.enabled) {
+  if (!features.admin) {
     return NextResponse.json({ error: "Not available" }, { status: 404 });
   }
   try {
@@ -31,20 +29,19 @@ export async function POST(request: Request): Promise<NextResponse> {
         { status: 400 },
       );
     }
-    if (parsed.data.stripeSubscriptionId) {
-      await payments.cancelSubscription(parsed.data.stripeSubscriptionId);
+    const { userId, reason } = parsed.data;
+    if (userId === session.user.id) {
+      return NextResponse.json(
+        { error: "You cannot delete your own account from here" },
+        { status: 400 },
+      );
     }
-    await db.updateSubscription(parsed.data.subscriptionId, {
-      status: SUBSCRIPTION_STATUSES.canceled,
-      cancelAtPeriodEnd: true,
-    });
+    const user = await softDeleteUser(userId);
     await logAdminAction(session, {
-      action: "cancel_subscription",
-      targetId: parsed.data.subscriptionId,
-      reason: parsed.data.reason,
-      metadata: {
-        stripeSubscriptionId: parsed.data.stripeSubscriptionId ?? null,
-      },
+      action: "delete_user",
+      targetUserId: userId,
+      reason,
+      metadata: { email: user.email, softDeletedAt: user.deletedAt },
     });
     return NextResponse.json({ ok: true });
   } catch (error) {

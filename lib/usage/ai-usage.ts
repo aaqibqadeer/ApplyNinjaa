@@ -101,6 +101,22 @@ export async function getMonthlyAiUsage(
   return doc?.count ?? 0;
 }
 
+/** Batched month-usage lookup (admin user list) — userId → count. */
+export async function getMonthlyAiUsageBulk(
+  userIds: string[],
+  period = currentPeriod(),
+): Promise<Map<string, number>> {
+  await connectMongo();
+  if (userIds.length === 0) return new Map();
+  const docs = await AiUsageCounterModel.find({
+    user_id: { $in: userIds.map((id) => new mongoose.Types.ObjectId(id)) },
+    period,
+  })
+    .lean<AiUsageCounterDoc[]>()
+    .exec();
+  return new Map(docs.map((d) => [d.user_id.toString(), d.count]));
+}
+
 /**
  * Atomically increment the user's monthly counter and return the new value.
  * Increment-first (check-and-refund in the caller) keeps the hard cap
