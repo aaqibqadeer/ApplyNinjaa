@@ -1,61 +1,51 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+
+import { VerifyEmailBanner } from "@/components/auth/VerifyEmailBanner";
+import { ApplicationsTable } from "@/components/dashboard/ApplicationsTable";
 import { AppHeader } from "@/components/shared/AppHeader";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { requireAuth } from "@/lib/auth/server";
+import { db } from "@/lib/db";
+
+export const metadata: Metadata = { title: "Dashboard" };
 
 // Per-user page (reads the session cookie) — never statically prerendered.
 export const dynamic = "force-dynamic";
 
-// Protected page — `requireAuth()` redirects to /login when there's no session.
-// Also serves as the post-login redirect target and a smoke test for auth. The
-// global nav (workspace switcher, admin/org links, sign-out) lives in AppHeader.
 export default async function DashboardPage() {
   const session = await requireAuth();
+  const profiles = await db.listProfilesForUser(session.user.id);
 
   return (
     <>
       <AppHeader session={session} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
-        <div className="mb-8">
-          <h1 className="font-heading text-2xl font-semibold">
-            Welcome back{session.user.name ? `, ${session.user.name}` : ""}.
-          </h1>
+        {!session.user.emailVerified && <VerifyEmailBanner />}
+
+        {profiles.length === 0 && (
+          <div className="border-border bg-card mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+            <div>
+              <p className="text-sm font-medium">Finish setting up</p>
+              <p className="text-muted-foreground text-xs">
+                Upload your resume to create your first profile — the
+                extension can&apos;t autofill without one.
+              </p>
+            </div>
+            <Button asChild size="sm">
+              <Link href="/onboarding">Start setup</Link>
+            </Button>
+          </div>
+        )}
+
+        <div className="mb-6">
+          <h1 className="font-heading text-2xl font-semibold">Applications</h1>
           <p className="text-muted-foreground text-sm">
-            You&apos;re signed in. Use the navigation above to look around.
+            Everything you&apos;ve tracked — click any cell to edit it.
           </p>
         </div>
 
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Account</CardTitle>
-            <CardDescription>Your current session.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-              <dt className="text-muted-foreground">Email</dt>
-              <dd>{session.user.email}</dd>
-              <dt className="text-muted-foreground">User ID</dt>
-              <dd className="font-mono text-xs">{session.user.id}</dd>
-              <dt className="text-muted-foreground">Org</dt>
-              <dd className="font-mono text-xs">
-                {session.organizationId ?? "—"}
-              </dd>
-              <dt className="text-muted-foreground">Role</dt>
-              <dd>{session.role ?? "—"}</dd>
-              {session.user.isSuperAdmin && (
-                <>
-                  <dt className="text-muted-foreground">Platform</dt>
-                  <dd>super admin</dd>
-                </>
-              )}
-            </dl>
-          </CardContent>
-        </Card>
+        <ApplicationsTable />
       </main>
     </>
   );

@@ -30,6 +30,8 @@ export async function AppHeader({ session }: AppHeaderProps) {
 
   const links: AppNavLink[] = [
     { href: "/dashboard", label: "Dashboard" },
+    { href: "/profiles", label: "Profiles" },
+    { href: "/settings/filters", label: "Filters" },
     ...(features.multiTenant && isOrgAdmin
       ? [{ href: "/settings/organization", label: "Organization" }]
       : []),
