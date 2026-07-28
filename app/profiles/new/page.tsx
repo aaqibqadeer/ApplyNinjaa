@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 import { ProfileEditor } from "@/components/profiles/ProfileEditor";
-import { emptyProfileValues } from "@/components/profiles/ProfileForm";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { requireAuth } from "@/lib/auth/server";
+import { emptyProfileValues } from "@/lib/profiles/form-values";
 
 export const metadata: Metadata = { title: "New profile" };
 

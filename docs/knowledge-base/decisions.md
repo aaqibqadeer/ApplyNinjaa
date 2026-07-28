@@ -5,6 +5,32 @@
 > Recent phases stay here; older entries live in
 > [`decisions-archive.md`](./decisions-archive.md). Keep this file small.
 
+## 2026-07-28 — v1.1: first-live-run bug fixes
+
+- **Never import a runtime value from a `"use client"` module into a Server
+  Component.** React hands back a client-reference *proxy* whose only own props
+  (`$$typeof`, `$$id`, `$$async`) are non-enumerable, so `{ ...value }` yields
+  `{}` — silently, at SSR time. This crashed `/profiles/new`, which spread
+  `emptyProfileValues` out of `ProfileForm.tsx`. Fix: shared form values/types
+  live in **`lib/profiles/form-values.ts`** (a plain module both sides import).
+  `import type` from a client module stays safe — types are erased. Don't
+  "fix" a recurrence with optional chaining; that only moves the crash.
+- **`pdfjs-dist` must never be webpack-bundled.** Its `legacy/build/pdf.mjs` is
+  itself a pre-built webpack bundle declaring a top-level
+  `var __webpack_exports__`, which shadows the binding Next injects — so the
+  injected prologue runs `Object.defineProperty(undefined, …)` on import.
+  `next.config.ts` lists `pdf-parse`/`pdfjs-dist`/`mammoth` in
+  **`serverExternalPackages`** (the Next 15 top-level key; the `experimental.`
+  form is deprecated). Verify by grepping the compiled route for a bare
+  `import("pdf-parse")` and zero `__webpack_exports__`. Wipe `.next/` after
+  changing this or the stale bundle is reused.
+- **Form value types are the schema's mirror — extend both together.**
+  `projects` existed end-to-end (Zod, adapter, service create *and* update) but
+  was missing from `ProfileFormValues`/`toFormValues`, so a resume-parsed
+  projects list was persisted at create and erased on the first edit-and-save.
+  Any field added to `profileSchema` needs a matching form value + editor
+  section, or edits become silent data loss.
+
 ## 2026-07-28 — ApplyNinjaa v1 build (fork of template v1.0.0)
 
 - **User-level billing rides the org schema.** `multiTenant` stays off; the

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ProfileEditor } from "@/components/profiles/ProfileEditor";
-import type { ProfileFormValues } from "@/components/profiles/ProfileForm";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { requireAuth } from "@/lib/auth/server";
+import type { ProfileFormValues } from "@/lib/profiles/form-values";
 import { getProfile, type OwnedProfile } from "@/lib/profiles/service";
 
 export const metadata: Metadata = { title: "Edit profile" };
@@ -22,6 +22,7 @@ function toFormValues(profile: OwnedProfile): ProfileFormValues {
       current: e.current ?? false,
     })),
     education: profile.education,
+    projects: profile.projects,
     links: profile.links,
     workAuthorization: profile.workAuthorization ?? null,
     workArrangement: profile.workArrangement ?? null,
