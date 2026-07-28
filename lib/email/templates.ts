@@ -18,7 +18,7 @@ import { sendEmail } from "./send";
 
 function layout(bodyHtml: string, footerHtml = ""): string {
   return `<div style="font-family:ui-sans-serif,system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px">
-  <div style="font-weight:700;font-size:18px;color:#1e3a5f;margin-bottom:16px">${APP_NAME}</div>
+  <div style="font-weight:700;font-size:18px;color:#8843db;margin-bottom:16px">${APP_NAME}</div>
   <div style="font-size:14px;line-height:1.6;color:#1f2937">${bodyHtml}</div>
   <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280">
     ${footerHtml}

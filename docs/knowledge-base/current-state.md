@@ -67,7 +67,7 @@ H4-EAD). v1 shipped on `staging`; v1.1 work is on
   (user-initiated-actions clause), `/cookie-policy`; cookie banner on;
   30-day soft delete (self-serve + admin) → `npm run hard-delete` purges PII;
   marketing emails opt-out via settings + tokenized one-click unsubscribe.
-- **Theme**: navy/blue oklch palette in `config/theme.ts` + `globals.css`
+- **Theme**: violet oklch palette (primary hue 300) in `config/theme.ts` + `globals.css`
   (both, hand-mirrored) + extension popup css; dark mode toggle + pre-
   hydration script.
 

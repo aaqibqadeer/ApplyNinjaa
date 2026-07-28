@@ -590,7 +590,7 @@ things to confirm are present:
 ### A6 🟢 Dark mode
 1. Click the sun/moon icon in the top-right of the header.
 
-**Expected:** The site switches between light and dark. Colours stay navy/blue,
+**Expected:** The site switches between light and dark. Colours stay violet,
 text stays readable everywhere. Reload the page — **your choice is remembered**
 and there is no white flash before dark mode appears.
 
@@ -804,7 +804,7 @@ company/role filled in.
    Appearance; Windows: Settings → Personalisation → Colours).
 2. Open the popup.
 
-**Expected:** The popup follows, using dark navy colours with readable text.
+**Expected:** The popup follows, using dark violet colours with readable text.
 
 ---
 

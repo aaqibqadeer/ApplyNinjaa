@@ -81,7 +81,7 @@ async function notify(tabId: number, message: string): Promise<void> {
         el.setAttribute(
           "style",
           "position:fixed;bottom:16px;right:16px;z-index:2147483647;" +
-            "background:#1e3a5f;color:#fff;padding:10px 14px;border-radius:8px;" +
+            "background:#8843db;color:#fff;padding:10px 14px;border-radius:8px;" +
             "font:13px/1.4 system-ui,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.25)",
         );
         document.body.appendChild(el);
