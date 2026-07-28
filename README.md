@@ -13,6 +13,14 @@ Built on the `ninjakit` boilerplate — its conventions still apply
 (see `CLAUDE.md` and `docs/`). This fork resolved the database choice to
 **MongoDB** and removed the Supabase adapters.
 
+## Testing
+
+**[docs/guides/testing-guide.md](docs/guides/testing-guide.md)** — a
+step-by-step setup and testing guide written for non-technical testers: how to
+install the tools, how to obtain every API key (Google, LinkedIn, Stripe,
+DeepSeek, Resend) click by click, and 66 numbered test cases covering every
+feature with expected results.
+
 ## Quickstart
 
 ```bash

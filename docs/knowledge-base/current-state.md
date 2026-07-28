@@ -86,6 +86,9 @@ H4-EAD). All work on branch `staging`.
 - Stripe/DeepSeek/Google/LinkedIn/Resend flows need real keys (names in
   .env.example) — none were available here, so no AI/payment/email call has
   ever actually executed.
+- **`docs/guides/testing-guide.md`** is the manual QA pass for all of the
+  above: non-technical setup (incl. how to obtain every key) + 66 numbered
+  test cases. Point the first live tester at it; there is no automated suite.
 
 ## Deferred / rough edges
 

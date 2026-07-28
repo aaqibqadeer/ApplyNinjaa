@@ -5,7 +5,11 @@ import { isAnyAiEnabled } from "@/config/features";
 import { analyzeJob } from "@/lib/ai/tasks";
 import { authErrorResponse, authorizeApi } from "@/lib/auth/roles";
 import { enabledFiltersForUser } from "@/lib/filters/service";
-import { getProfile, profileForDomain } from "@/lib/profiles/service";
+import {
+  getProfile,
+  profileForDomain,
+  rememberDomainProfile,
+} from "@/lib/profiles/service";
 import { recordAiCall } from "@/lib/usage/ai-usage";
 import { enforceAiQuota, enforceAiRateLimits } from "@/lib/usage/enforce";
 
@@ -45,6 +49,13 @@ export async function POST(request: Request): Promise<NextResponse> {
         { error: "Create a profile first — upload your resume in the dashboard" },
         { status: 400 },
       );
+    }
+
+    // An explicit pick in the popup counts as choosing that profile for this
+    // site, so the picker remembers it next time (spec §2) — an implicit
+    // fallback must NOT overwrite the stored preference.
+    if (domain && profileId) {
+      await rememberDomainProfile(session, domain, profile.id);
     }
 
     const filters = await enabledFiltersForUser(session);
