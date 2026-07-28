@@ -216,9 +216,25 @@ Filters (JSON array):
 ${JSON.stringify(filters.map((f) => ({ id: f.id, label: f.label, guidance: f.description })))}
 
 Return {"results":[{"filterId","verdict"}], "fitScore", "fitReasoning", "company", "roleTitle"}:
-- one results entry per filter; verdict is exactly "Yes", "No", or "Neutral"
-  ("Yes" when the posting clearly satisfies/asserts the filter, "No" when it
-  clearly contradicts it, "Neutral" when the posting doesn't say),
+- one results entry per filter; verdict is exactly "Yes", "No", or "Neutral".
+  These three are NOT a confidence scale — they answer different questions:
+    "Yes"     = the posting (or the candidate profile, where the filter
+                compares against it) clearly SATISFIES the filter.
+    "No"      = the posting actively CONFLICTS with it. Only use "No" when
+                the posting states something incompatible.
+    "Neutral" = the posting DOESN'T SAY. This is the correct answer for
+                missing information and is by far the most common verdict.
+  Absence of information is ALWAYS "Neutral", NEVER "No". A posting that
+  simply never mentions visa sponsorship is "Neutral" on sponsorship, not
+  "No" — silence is not refusal. Do not infer a "No" from an omission, from
+  the industry, from the company's size, or from what is typical; only from
+  what the posting actually says.
+  Example: for "Remote/Hybrid/Onsite Match" where the candidate wants
+  Remote — a posting saying "5 days a week onsite" is "No"; a posting that
+  never mentions location is "Neutral".
+- when a filter compares the posting against the candidate (work
+  arrangement, employment type, seniority), judge it against the profile
+  above, not against what would suit a generic applicant,
 - fitScore: integer 0-100 (skills/experience/seniority match vs the profile;
   ignore demographics),
 - fitReasoning: ONE sentence explaining the score,

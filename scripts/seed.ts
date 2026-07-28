@@ -237,31 +237,32 @@ async function main(): Promise<void> {
     {
       label: "Visa Sponsorship Available",
       description:
-        "Does the job offer visa sponsorship (H1-B or similar) or explicitly say it cannot sponsor?",
+        "Yes when the posting says it sponsors visas (H1-B or similar). No when it says it cannot sponsor. Neutral when sponsorship is never mentioned — most postings say nothing, and silence is not a refusal.",
     },
     {
       label: "US Citizenship Required",
       description:
-        "Does the posting require US citizenship (answer Yes when citizenship is required)?",
+        "Yes when the posting requires US citizenship. No when it explicitly says citizenship is not required. Neutral when it isn't mentioned. (Yes here is a restriction, not a positive.)",
     },
     {
       label: "Security Clearance Required",
       description:
-        "Does the posting require an active or obtainable security clearance?",
+        "Yes when the posting requires an active or obtainable clearance. No when it explicitly says none is needed. Neutral when it isn't mentioned. (Yes here is a restriction, not a positive.)",
     },
     {
       label: "Work Authorization Match",
       description:
-        "Is the candidate's stated work authorization compatible with the posting's requirements?",
+        "Compares the posting against the candidate's stated work authorization. Yes when they're compatible, No when the posting's requirement rules the candidate out, Neutral when the posting states no requirement.",
     },
     {
       label: "Remote/Hybrid/Onsite Match",
       description:
-        "Does the job's work arrangement match the candidate's preferred arrangement?",
+        "Compares the posting against the candidate's preferred arrangement. Yes when they match, No when the posting conflicts (e.g. fully onsite for a remote-only candidate), Neutral when the posting doesn't state where the work happens.",
     },
     {
       label: "Salary Range Disclosed",
-      description: "Does the posting disclose a salary or compensation range?",
+      description:
+        "Yes when the posting states a salary or compensation range. No is not really applicable here — a posting that omits pay is Neutral, not No.",
     },
   ];
   const existingAdminFilters = await db.listAdminJobFilters();
