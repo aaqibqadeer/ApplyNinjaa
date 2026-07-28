@@ -32,6 +32,9 @@ export async function AppHeader({ session }: AppHeaderProps) {
     { href: "/dashboard", label: "Dashboard" },
     { href: "/profiles", label: "Profiles" },
     { href: "/settings/filters", label: "Filters" },
+    ...(features.payments.enabled
+      ? [{ href: "/settings/billing", label: "Billing" }]
+      : []),
     ...(features.multiTenant && isOrgAdmin
       ? [{ href: "/settings/organization", label: "Organization" }]
       : []),

@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "seed": "tsx scripts/seed.ts",
+    "sync:plans": "tsx scripts/sync-plans.ts",
     "build:extension": "npm --prefix extension install && npm --prefix extension run build"
   },
   "dependencies": {
