@@ -158,15 +158,14 @@ function requirementRules(value: BaseEnv): RequirementRule[] {
       key: "LINKEDIN_CLIENT_SECRET",
       reason: "auth.oauth.linkedin is on",
     },
+    // Magic link is the ONLY way in for that method, so the key is mandatory.
+    // Email+password deliberately does NOT require it: verification/reset
+    // links fall back to the server console (lib/email/send.ts), which is how
+    // local testing works without an email provider.
     {
       when: features.auth.magicLink,
       key: "RESEND_API_KEY",
       reason: "auth.magicLink is on (email delivery)",
-    },
-    {
-      when: features.auth.emailPassword,
-      key: "RESEND_API_KEY",
-      reason: "auth.emailPassword is on (verification-email delivery)",
     },
 
     // Field-level encryption — required whenever any auth method is on, since
