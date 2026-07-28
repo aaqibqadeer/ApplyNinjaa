@@ -5,6 +5,50 @@
 > Recent phases stay here; older entries live in
 > [`decisions-archive.md`](./decisions-archive.md). Keep this file small.
 
+## 2026-07-28 — ApplyNinjaa v1 build (fork of template v1.0.0)
+
+- **User-level billing rides the org schema.** `multiTenant` stays off; the
+  silent default org (org ≡ user) is the billing entity, so checkout/webhook/
+  subscriptions are reused unchanged. Never refactor subscriptions to userId —
+  resolve "the user's plan" via `getEffectivePlan(session)`
+  (lib/payments/access.ts: live sub → lazy trial expiry → Free-slug fallback).
+- **No-card trial ≠ Stripe trial.** The 7-day Pro trial is a local `trialing`
+  subscription row (no Stripe ids, end in `currentPeriodEnd`), started at
+  email verification, once per verified email (`users.trial_used_at`), lazily
+  expired on read — no cron. `checkout.ts` hard-sends `trialEnd: null`;
+  re-enabling Stripe trials via `app_settings.trialDays` is intentionally
+  impossible (that knob now sets the LOCAL trial length instead).
+- **Usage/rate-limit data bypasses the DB adapter** (`lib/usage/`,
+  `lib/gmail/store.ts`): atomic `$inc` + TTL indexes are Mongo primitives and
+  operational, not tenant-domain, data — same precedent as
+  `auth_credentials`. The fork is Mongo-only (Supabase adapters deleted §1.5),
+  so no portability is lost. Cap enforcement is increment-first with
+  refund-on-overshoot so the hard cap holds under concurrency.
+- **One AI call per user action.** Popup analysis (all filter verdicts + fit
+  score + company/role extraction) is a single `analyzeJob` generation; a
+  whole Gmail scan (≤50 msgs, batched classification) bills as one action.
+  Don't split these back into per-filter/per-email calls.
+- **Extension has NO content script.** All page-DOM work is closure-free
+  functions passed to `chrome.scripting.executeScript` (constraint documented
+  in `extension/src/lib/dom-actions.ts`); activeTab+scripting on user gesture,
+  host permission = backend origin only. Auth = one-time cookie→Bearer
+  exchange (`purpose:"extension"`, 30d, chrome.storage.local); server side is
+  `authorizeApi()` + middleware Bearer passthrough. Stateless tokens are
+  unrevocable until expiry — accepted; add `users.tokenVersion` if that
+  changes.
+- **/admin is platform-staff only.** Every user is org-admin of their silent
+  default org, so the template's org-admin gate would admit everyone. Support
+  tier = `users.is_support_admin` (view users + refunds ONLY); destructive/
+  pricing/filter/audit paths stay `superAdmin`. Two booleans, not a role
+  enum, so existing `isSuperAdmin` checks stayed untouched.
+- **EEO encryption boundary is the profile service.** `lib/profiles/service.ts`
+  is the only importer of `lib/crypto/field-encryption.ts` for profile data
+  (AES-256-GCM, per-user AAD, `v1.` version prefix); schema/adapter/routes
+  only ever see packed ciphertext. Gmail refresh tokens reuse the same key.
+- **Plan slugs are create-only.** Code finds plans by slug (`free`, `pro`) —
+  names/prices are admin-editable, slugs never change after creation (admin
+  PATCH omits slug by schema).
+
 ## 2026-07-19 — Phase 10: docs finalization (template v1.0.0)
 
 Closes the template. **CLAUDE.md and `.cursorrules` were already complete**, so
