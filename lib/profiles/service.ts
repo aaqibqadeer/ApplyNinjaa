@@ -25,6 +25,7 @@ import {
   type ProfileEeo,
   type UpdateProfile,
 } from "@/lib/db";
+import { enforceProfileLimit } from "@/lib/usage/enforce";
 
 class ProfileError extends Error {
   readonly status: number;
@@ -163,6 +164,7 @@ export async function createProfile(
     throw new ProfileError("No active organization", 400);
   }
   const existing = await db.listProfilesForUser(session.user.id);
+  await enforceProfileLimit(session, existing.length);
   if (existing.some((p) => p.name === input.name)) {
     throw new ProfileError(
       `You already have a profile named "${input.name}"`,

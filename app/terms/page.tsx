@@ -57,7 +57,7 @@ export default function TermsPage() {
           AI-action allowances are shown at checkout and on the pricing page.
         </li>
         <li>
-          New accounts get a free Pro trial (no card required). When it ends,
+          New accounts get a free trial (no card required). When it ends,
           the account automatically moves to the Free plan unless you
           subscribe.
         </li>

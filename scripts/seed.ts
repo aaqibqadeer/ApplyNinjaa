@@ -143,7 +143,13 @@ async function main(): Promise<void> {
       priceMonthly: 0,
       priceAnnual: null,
       annualDiscountPercent: null,
-      limits: { aiCallsPerMonth: 5 },
+      limits: {
+        aiCallsPerMonth: 5,
+        profileLimit: 1,
+        customFilters: false,
+        gmailScan: false,
+        dataExport: false,
+      },
       isActive: true,
       sortOrder: 0,
     },
@@ -154,7 +160,13 @@ async function main(): Promise<void> {
       priceMonthly: 399,
       priceAnnual: 3830,
       annualDiscountPercent: 20,
-      limits: { aiCallsPerMonth: 50 },
+      limits: {
+        aiCallsPerMonth: 50,
+        profileLimit: 1,
+        customFilters: true,
+        gmailScan: false,
+        dataExport: false,
+      },
       isActive: true,
       sortOrder: 1,
     },
@@ -165,7 +177,13 @@ async function main(): Promise<void> {
       priceMonthly: 699,
       priceAnnual: 6710,
       annualDiscountPercent: 20,
-      limits: { aiCallsPerMonth: 150 },
+      limits: {
+        aiCallsPerMonth: 150,
+        profileLimit: 3,
+        customFilters: true,
+        gmailScan: false,
+        dataExport: true,
+      },
       isActive: true,
       sortOrder: 2,
     },
@@ -176,14 +194,42 @@ async function main(): Promise<void> {
       priceMonthly: 999,
       priceAnnual: 9590,
       annualDiscountPercent: 20,
-      limits: { aiCallsPerMonth: 300 },
+      limits: {
+        // -1 = unlimited (see getProfileLimit in lib/usage/enforce.ts).
+        aiCallsPerMonth: 300,
+        profileLimit: -1,
+        customFilters: true,
+        gmailScan: true,
+        dataExport: true,
+      },
       isActive: true,
       sortOrder: 3,
     },
   ];
   for (const planSeed of planSeeds) {
     const existing = await db.getPlanBySlug(planSeed.slug);
-    if (!existing) await db.createPlan(planSeed);
+    if (!existing) {
+      await db.createPlan(planSeed);
+      continue;
+    }
+    // Backfill only limit keys the plan doesn't have yet, so a deployment
+    // seeded before an entitlement existed picks it up on the next `npm run
+    // seed`. Everything a super admin owns — price, name, description, active,
+    // sort order, Stripe ids, and any limit they've already tuned — is left
+    // exactly as-is, which keeps this safe to re-run any number of times.
+    const seededLimits = planSeed.limits ?? {};
+    const currentLimits = existing.limits ?? {};
+    const missing = Object.entries(seededLimits).filter(
+      ([key]) => !(key in currentLimits),
+    );
+    if (missing.length > 0) {
+      await db.updatePlan(existing.id, {
+        limits: { ...currentLimits, ...Object.fromEntries(missing) },
+      });
+      console.log(
+        `  ↳ ${planSeed.slug}: added limits ${missing.map(([k]) => k).join(", ")}`,
+      );
+    }
   }
 
   // Admin-default "Valid Job" filters (product spec §4). Idempotent by label.
@@ -233,7 +279,7 @@ async function main(): Promise<void> {
   }
 
   // Ensure the platform settings singleton exists. `trialDays` (default 7) is
-  // the length of the local no-card Pro trial started at email verification;
+  // the length of the local no-card trial started at email verification;
   // the legacy Stripe-checkout trial is disabled in lib/payments/checkout.ts.
   const settings = await db.getAppSettings();
 

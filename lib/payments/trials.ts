@@ -1,7 +1,8 @@
 /**
  * lib/payments/trials.ts — trial logic.
  *
- * ApplyNinjaa's trial is a LOCAL, no-credit-card Pro trial: it starts when a
+ * ApplyNinjaa's trial is a LOCAL, no-credit-card trial on the Starter plan:
+ * it starts when a
  * user verifies their email (one trial per verified email, `users.trial_used_at`)
  * as a `trialing` subscription row with no Stripe ids, and lazily downgrades to
  * Free when it expires (`applyLazyTrialExpiry`, called from the plan resolver —
@@ -23,6 +24,13 @@ import {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * Which plan the free trial grants. Starter, not Pro: the trial exists to
+ * prove the product works, and handing out the high-volume tier for a week
+ * both costs more in AI calls and makes Starter look pointless afterwards.
+ */
+const TRIAL_PLAN_SLUG = PLAN_SLUGS.starter;
+
+/**
  * Legacy helper (still called at org creation to stamp `org.trialEndsAt`).
  * Harmless metadata now — checkout no longer forwards it to Stripe.
  */
@@ -34,12 +42,12 @@ export async function resolveTrialEndsAt(): Promise<Date | null> {
 }
 
 /**
- * Start the no-card Pro trial for a freshly verified user, if eligible:
- * never trialed before, no existing subscription on their org, payments on,
- * a positive trial length configured, and an active "pro" plan present.
+ * Start the no-card trial for a freshly verified user, if eligible: never
+ * trialed before, no existing subscription on their org, payments on, a
+ * positive trial length configured, and the trial plan active.
  * Returns the created subscription or null when not eligible.
  */
-export async function startProTrialIfEligible(
+export async function startTrialIfEligible(
   userId: string,
   organizationId: string,
 ): Promise<Subscription | null> {
@@ -54,12 +62,12 @@ export async function startProTrialIfEligible(
   const settings = await db.getAppSettings();
   if (!settings.trialDays || settings.trialDays <= 0) return null;
 
-  const proPlan = await db.getPlanBySlug(PLAN_SLUGS.pro);
-  if (!proPlan || !proPlan.isActive) return null;
+  const trialPlan = await db.getPlanBySlug(TRIAL_PLAN_SLUG);
+  if (!trialPlan || !trialPlan.isActive) return null;
 
   const subscription = await db.createSubscription({
     organizationId,
-    planId: proPlan.id,
+    planId: trialPlan.id,
     status: SUBSCRIPTION_STATUSES.trialing,
     stripeCustomerId: null,
     stripeSubscriptionId: null,

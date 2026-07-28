@@ -877,7 +877,7 @@ shows Company, Role, Status, Fit Score, Date Applied, URL, Notes.
 The quickest way to test this is on a Free-plan account with only 5 actions.
 
 1. Create a brand-new account but **do not verify its email** (unverified means
-   no Pro trial, so it sits on Free with 5 actions).
+   no free trial, so it sits on Free with 5 actions).
 2. Give it a profile **without uploading a resume**: go to **Profiles → New
    profile**, type a name and a few details, and save.
    - Uploading a resume would itself spend one of the five actions, changing

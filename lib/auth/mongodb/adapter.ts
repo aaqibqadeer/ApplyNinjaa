@@ -17,7 +17,7 @@ import bcrypt from "bcryptjs";
 import { env } from "@/config/env.schema";
 import { db, USER_STATUSES, type User } from "@/lib/db";
 import { connectMongo } from "@/lib/db/mongodb/adapter";
-import { startProTrialIfEligible } from "@/lib/payments/trials";
+import { startTrialIfEligible } from "@/lib/payments/trials";
 
 import type { AuthAdapter } from "../adapter";
 import {
@@ -380,7 +380,7 @@ export class MongoAuthAdapter implements AuthAdapter {
           emailVerifiedAt: new Date(),
         });
         const orgId = await ensureDefaultOrganization(toAuthUser(verified));
-        await startProTrialIfEligible(verified.id, orgId);
+        await startTrialIfEligible(verified.id, orgId);
         return toAuthUser(verified);
       }
       return toAuthUser(existing);
@@ -395,7 +395,7 @@ export class MongoAuthAdapter implements AuthAdapter {
     });
     const user = toAuthUser(withVerification);
     const orgId = await ensureDefaultOrganization(user);
-    await startProTrialIfEligible(user.id, orgId);
+    await startTrialIfEligible(user.id, orgId);
     return user;
   }
 

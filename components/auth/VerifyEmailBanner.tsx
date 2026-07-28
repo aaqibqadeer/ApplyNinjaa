@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 /**
  * Shown to signed-in users who haven't verified their email yet. Verifying
- * activates the Pro trial, so this nudge matters.
+ * activates the free trial, so this nudge matters.
  */
 export function VerifyEmailBanner() {
   const [sending, setSending] = useState(false);
@@ -37,7 +37,7 @@ export function VerifyEmailBanner() {
         <p className="text-sm font-medium">Verify your email</p>
         <p className="text-muted-foreground text-xs">
           Confirm your address to activate your account and start your free
-          Pro trial.
+          free trial.
         </p>
       </div>
       <Button

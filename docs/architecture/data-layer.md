@@ -137,6 +137,39 @@ timestamptz`; the `plans`, `app_settings`, and `subscriptions` tables (snake_cas
   the single entry point — it reads the active plan's `limits` JSON and returns
   `true` whenever payments is off, so no other code branches on the payments flag.
 
+### Entitlements stored in `plans.limits`
+
+`limits` is an open JSON blob, so a new entitlement is a **seed/admin edit, not
+a migration**. Two kinds, read two different ways:
+
+| key               | kind    | free | starter | pro | premium |
+| ----------------- | ------- | ---- | ------- | --- | ------- |
+| `aiCallsPerMonth` | numeric | 5    | 50      | 150 | 300     |
+| `profileLimit`    | numeric | 1    | 1       | 3   | `-1`    |
+| `customFilters`   | boolean | ✗    | ✓       | ✓   | ✓       |
+| `gmailScan`       | boolean | ✗    | ✗       | ✗   | ✓       |
+| `dataExport`      | boolean | ✗    | ✗       | ✓   | ✓       |
+
+- **Boolean** keys → `hasAccess()` / `requireFeature()` (throws
+  `EntitlementError`: 402 + `{code:"FEATURE_LOCKED", feature, requiredPlan,
+upgradeUrl}`, served by the `authErrorResponse` tail every route already has).
+- **Numeric** keys → the typed readers in `lib/usage/enforce.ts`
+  (`getAiCallCap`, `getProfileLimit`). **Never** `hasAccess()` for these — its
+  `toBoolean` reports any positive number as `true`, so a limit of `3` and a
+  limit of `1` would both read as "allowed". `-1` means unlimited.
+- Upsell copy names the required plan via `lowestPlanWith()` /
+  `lowestPlanWithLimitAbove()`, which read the plans table — never a hardcoded
+  plan name (§15).
+- Limits gate **creation only**. Downgrading never deletes data: a user who
+  drops from Pro to Starter keeps every existing profile readable and editable
+  and simply cannot create another.
+- CSV export is built client-side from data the user already holds, so hiding
+  the button is the only enforcement possible — an accepted limit, unlike the
+  other three which are all enforced server-side.
+- `npm run seed` backfills newly-added limit keys onto existing plan rows and
+  leaves any value a super admin has already tuned untouched, so it stays safe
+  to re-run against a live database.
+
 ## ApplyNinjaa domain tables
 
 This fork resolved `DB_PROVIDER` to **MongoDB** and removed the Supabase
@@ -146,21 +179,22 @@ this fork — `multiTenant` is off, so each user has one silent default org),
 and each table shipped with its Zod schema (`lib/db/schema.ts`), adapter
 methods, and seed entry in the same commit (§1.4).
 
-| Entity | Collection | Tenant-scoped? | Notes |
-| --- | --- | --- | --- |
-| Profile | `profiles` | Yes | Multiple per user, unique `(user_id, name)`. Parsed resume data; `eeo` holds **field-level-encrypted ciphertext** only (lib/crypto). |
-| ProfileDomainPref | `profile_domain_prefs` | Yes | Last-used profile per job-site domain, unique `(user_id, domain)`. |
-| Application | `applications` | Yes | Tracked jobs; status enum (10 values), user-editable `fit_score`, denormalized `filter_results`. Indexed `(user_id, applied_at)` and `(user_id, status)`. |
-| JobFilter | `job_filters` | No (mixed) | `type: admin` = platform master list (no owner); `type: user` = one user's custom filter (`owner_id`). |
-| UserFilterSetting | `user_filter_settings` | Yes | Per-user enable/disable of filters, unique `(user_id, filter_id)`. |
-| AdminAction | `admin_actions` | No | Append-only audit log (who/what/when/why); reads newest-first. |
-| GmailScan | `gmail_scans` | Yes | Manual scan runs + per-email proposals; nothing writes to applications until a proposal is user-approved. |
+| Entity            | Collection             | Tenant-scoped? | Notes                                                                                                                                                     |
+| ----------------- | ---------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Profile           | `profiles`             | Yes            | Multiple per user, unique `(user_id, name)`. Parsed resume data; `eeo` holds **field-level-encrypted ciphertext** only (lib/crypto).                      |
+| ProfileDomainPref | `profile_domain_prefs` | Yes            | Last-used profile per job-site domain, unique `(user_id, domain)`.                                                                                        |
+| Application       | `applications`         | Yes            | Tracked jobs; status enum (10 values), user-editable `fit_score`, denormalized `filter_results`. Indexed `(user_id, applied_at)` and `(user_id, status)`. |
+| JobFilter         | `job_filters`          | No (mixed)     | `type: admin` = platform master list (no owner); `type: user` = one user's custom filter (`owner_id`).                                                    |
+| UserFilterSetting | `user_filter_settings` | Yes            | Per-user enable/disable of filters, unique `(user_id, filter_id)`.                                                                                        |
+| AdminAction       | `admin_actions`        | No             | Append-only audit log (who/what/when/why); reads newest-first.                                                                                            |
+| GmailScan         | `gmail_scans`          | Yes            | Manual scan runs + per-email proposals; nothing writes to applications until a proposal is user-approved.                                                 |
 
 User extensions: `is_support_admin` (second platform admin tier — never merged
 with `is_super_admin` checks), `status` (active/suspended/banned/
-pending_deletion), `email_verified_at`, `trial_used_at` (one Pro trial per
+pending_deletion), `email_verified_at`, `trial_used_at` (one free trial per
 verified email), `deleted_at` (30-day soft delete), `marketing_emails_enabled`
-+ `unsubscribe_token` (CAN-SPAM).
+
+- `unsubscribe_token` (CAN-SPAM).
 
 Plan extensions: unique `slug` (stable lookup — `free`/`starter`/`pro`/
 `premium`; names and prices are admin-editable, slugs are create-only) and the

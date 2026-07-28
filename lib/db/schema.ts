@@ -72,7 +72,7 @@ export const userSchema = z.object({
   status: userStatusSchema.default(USER_STATUSES.active),
   /** Set when the user verifies their email; gates the one-per-email trial. */
   emailVerifiedAt: z.coerce.date().nullable().optional(),
-  /** Set once when the Pro trial is started — one trial per verified email. */
+  /** Set once when the free trial is started — one trial per verified email. */
   trialUsedAt: z.coerce.date().nullable().optional(),
   /** When the 30-day soft-delete window started (status=pending_deletion). */
   deletedAt: z.coerce.date().nullable().optional(),
@@ -292,7 +292,7 @@ export type UpdatePlan = z.infer<typeof updatePlanSchema>;
 
 /**
  * Platform-wide, admin-editable settings — a single row. `trialDays` is the
- * length of ApplyNinjaa's no-card Pro trial (started at email verification —
+ * length of ApplyNinjaa's no-card free trial (started at email verification —
  * lib/payments/trials.ts); 0 disables trials. No `organization_id`: like
  * `plans`, this is a platform concern, not per-tenant.
  */

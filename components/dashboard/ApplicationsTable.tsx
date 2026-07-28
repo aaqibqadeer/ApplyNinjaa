@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -38,7 +39,22 @@ type SortKey = "company" | "roleTitle" | "status" | "fitScore" | "appliedAt";
  * including the AI fit score — with per-column sort, search + status filter,
  * and bulk actions (mark rejected, delete, CSV export).
  */
-export function ApplicationsTable() {
+export interface ApplicationsTableProps {
+  /**
+   * Whether the viewer's plan includes CSV export. Export is built entirely
+   * in the browser from data the user already has, so there is no server-side
+   * gate to add — hiding the button IS the enforcement here, and that's an
+   * accepted limit of gating a purely client-side feature.
+   */
+  canExport?: boolean;
+  /** Plan name that unlocks export, for the upsell line. */
+  exportPlan?: string | null;
+}
+
+export function ApplicationsTable({
+  canExport = true,
+  exportPlan,
+}: ApplicationsTableProps = {}) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
@@ -246,9 +262,20 @@ export function ApplicationsTable() {
               />
             </>
           )}
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            Export CSV
-          </Button>
+          {canExport ? (
+            <Button variant="outline" size="sm" onClick={exportCsv}>
+              Export CSV
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              title={`CSV export is available on ${exportPlan ?? "a paid plan"} and above`}
+            >
+              <Link href="/settings/billing">Export CSV</Link>
+            </Button>
+          )}
         </div>
       </div>
 

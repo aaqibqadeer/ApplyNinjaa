@@ -86,3 +86,118 @@ export async function hasAccess(
   const { plan } = await getEffectivePlan(session);
   return toBoolean(plan.limits?.[feature]);
 }
+
+/**
+ * Boolean entitlement keys stored in `plans.limits` (§15 — limits is an open
+ * JSON blob, so adding one is a seed/admin edit, never a migration).
+ * Numeric limits (aiCallsPerMonth, profileLimit) are NOT listed here: they are
+ * read with the typed helpers in `lib/usage/enforce.ts`, because `toBoolean`
+ * would report any positive number as "allowed".
+ */
+export const PLAN_FEATURES = {
+  customFilters: "customFilters",
+  gmailScan: "gmailScan",
+  dataExport: "dataExport",
+} as const;
+
+export type PlanFeature = (typeof PLAN_FEATURES)[keyof typeof PLAN_FEATURES];
+
+/**
+ * Thrown when the effective plan doesn't include a feature. Shaped like
+ * UsageLimitError so the existing `catch → authErrorResponse(error)` tail on
+ * every route serves it unchanged (spreads `.payload`, honours `.status`), and
+ * so the extension's existing `code`/`upgradeUrl` handling just works.
+ */
+export class EntitlementError extends Error {
+  readonly status = 402;
+  readonly payload: {
+    code: "FEATURE_LOCKED";
+    feature: string;
+    requiredPlan: string | null;
+    upgradeUrl: string;
+  };
+  constructor(feature: string, requiredPlan: string | null, message?: string) {
+    super(
+      message ??
+        (requiredPlan
+          ? `That's a ${requiredPlan} feature — upgrade to use it`
+          : "That feature isn't included in your plan"),
+    );
+    this.name = "EntitlementError";
+    this.payload = {
+      code: "FEATURE_LOCKED",
+      feature,
+      requiredPlan,
+      upgradeUrl: "/settings/billing",
+    };
+  }
+}
+
+/**
+ * Typed read of a numeric `limits` key. `-1` (any negative) means unlimited →
+ * Infinity; absent or malformed → `fallback`. The single coercion used by
+ * every numeric limit, so plans configured with `"150"` behave like `150`.
+ */
+export function readNumericLimit(
+  plan: Plan,
+  key: string,
+  fallback: number,
+): number {
+  const raw = plan.limits?.[key];
+  const value = typeof raw === "string" ? Number(raw) : raw;
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  if (value < 0) return Infinity;
+  return Math.floor(value);
+}
+
+/**
+ * The cheapest active plan whose numeric `key` limit exceeds `current` — the
+ * upsell target when someone hits a countable limit. Null when nothing on the
+ * price list would actually give them more.
+ */
+export async function lowestPlanWithLimitAbove(
+  key: string,
+  current: number,
+  fallback: number,
+): Promise<Plan | null> {
+  const plans = await db.listPlans();
+  return (
+    plans
+      .filter(
+        (plan) => plan.isActive && readNumericLimit(plan, key, fallback) > current,
+      )
+      .sort(
+        (a, b) => a.priceMonthly - b.priceMonthly || a.sortOrder - b.sortOrder,
+      )[0] ?? null
+  );
+}
+
+/**
+ * The cheapest active plan that includes `feature`, by price then sort order —
+ * read from the plans table so the upsell never hardcodes a plan name (§15).
+ * Null when no active plan offers it.
+ */
+export async function lowestPlanWith(feature: string): Promise<Plan | null> {
+  const plans = await db.listPlans();
+  const eligible = plans
+    .filter((plan) => plan.isActive && toBoolean(plan.limits?.[feature]))
+    .sort(
+      (a, b) => a.priceMonthly - b.priceMonthly || a.sortOrder - b.sortOrder,
+    );
+  return eligible[0] ?? null;
+}
+
+/**
+ * Assert a boolean entitlement, throwing EntitlementError (402 + upsell
+ * payload) when the plan doesn't include it. Server-side authority — the UI
+ * hides locked affordances, but this is what actually enforces them.
+ */
+export async function requireFeature(
+  session: Session,
+  feature: PlanFeature,
+  message?: string,
+): Promise<void> {
+  if (await hasAccess(session, feature)) return;
+  const required = await lowestPlanWith(feature);
+  throw new EntitlementError(feature, required?.name ?? null, message);
+}

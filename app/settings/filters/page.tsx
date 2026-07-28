@@ -3,6 +3,11 @@ import type { Metadata } from "next";
 import { FilterToggles } from "@/components/filters/FilterToggles";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { requireAuth } from "@/lib/auth/server";
+import {
+  hasAccess,
+  lowestPlanWith,
+  PLAN_FEATURES,
+} from "@/lib/payments/access";
 
 export const metadata: Metadata = { title: "Job filters" };
 
@@ -10,6 +15,10 @@ export const dynamic = "force-dynamic";
 
 export default async function FilterSettingsPage() {
   const session = await requireAuth();
+  const canAddCustom = await hasAccess(session, PLAN_FEATURES.customFilters);
+  const requiredPlan = canAddCustom
+    ? null
+    : ((await lowestPlanWith(PLAN_FEATURES.customFilters))?.name ?? null);
   return (
     <>
       <AppHeader session={session} />
@@ -24,7 +33,10 @@ export default async function FilterSettingsPage() {
             own deal-breakers.
           </p>
         </div>
-        <FilterToggles />
+        <FilterToggles
+          canAddCustom={canAddCustom}
+          requiredPlan={requiredPlan}
+        />
       </main>
     </>
   );

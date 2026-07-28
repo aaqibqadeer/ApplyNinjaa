@@ -3,7 +3,7 @@
  *
  * Verification tokens are stateless signed JWTs (purpose `email_verify`), the
  * same pattern as password-reset/magic-link. Verifying marks
- * `users.email_verified_at` and starts the one-per-verified-email Pro trial
+ * `users.email_verified_at` and starts the one-per-verified-email free trial
  * (lib/payments/trials.ts). OAuth/magic-link sign-ins verify implicitly (the
  * provider proved the email), so only the email+password flow sends this.
  */
@@ -12,7 +12,7 @@ import { APP_NAME } from "@/config/brand";
 import { env } from "@/config/env.schema";
 import { db, type User } from "@/lib/db";
 import { sendEmail } from "@/lib/email/send";
-import { startProTrialIfEligible } from "@/lib/payments/trials";
+import { startTrialIfEligible } from "@/lib/payments/trials";
 
 import { EMAIL_VERIFY_TTL_SECONDS, TOKEN_PURPOSE } from "./constants";
 import { signToken, verifyToken } from "./jwt";
@@ -34,13 +34,13 @@ export async function sendVerificationEmail(user: {
     html:
       `<p>Welcome to ${APP_NAME}! Confirm your email by clicking ` +
       `<a href="${url}">this link</a>. It expires in 24 hours.</p>` +
-      `<p>Verifying activates your account and starts your free Pro trial.</p>`,
+      `<p>Verifying activates your account and starts your free trial.</p>`,
   });
 }
 
 /**
  * Consume a verification token: mark the user verified (idempotent) and start
- * the Pro trial if eligible. Returns the user, or null for a bad/expired token.
+ * the free trial if eligible. Returns the user, or null for a bad/expired token.
  */
 export async function consumeVerificationToken(
   token: string,
@@ -56,7 +56,7 @@ export async function consumeVerificationToken(
   });
   const organizationId = await resolveDefaultOrganizationId(user.id);
   if (organizationId) {
-    await startProTrialIfEligible(user.id, organizationId);
+    await startTrialIfEligible(user.id, organizationId);
   }
   return verified;
 }

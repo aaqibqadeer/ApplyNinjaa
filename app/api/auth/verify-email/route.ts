@@ -6,7 +6,7 @@ import { consumeVerificationToken } from "@/lib/auth/verification";
 
 /**
  * Clicked from the verification email. Marks the account verified (idempotent),
- * starts the Pro trial when eligible, and redirects into the app.
+ * starts the free trial when eligible, and redirects into the app.
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!isAnyAuthEnabled) {
