@@ -291,11 +291,12 @@ export type UpdatePlan = z.infer<typeof updatePlanSchema>;
 /* -------------------------------------------------------------------------- */
 
 /**
- * Platform-wide, admin-editable settings — a single row. Currently just
- * `trialDays` (used to compute an org's `trialEndsAt` at creation). No
- * `organization_id`: like `plans`, this is a platform concern, not per-tenant.
+ * Platform-wide, admin-editable settings — a single row. `trialDays` is the
+ * length of ApplyNinjaa's no-card Pro trial (started at email verification —
+ * lib/payments/trials.ts); 0 disables trials. No `organization_id`: like
+ * `plans`, this is a platform concern, not per-tenant.
  */
-export const DEFAULT_TRIAL_DAYS = 14;
+export const DEFAULT_TRIAL_DAYS = 7;
 
 export const appSettingsSchema = z.object({
   id: z.string(),

@@ -32,6 +32,11 @@ function isPublicPath(pathname: string): boolean {
   // Stripe webhooks are authenticated by signature, not a session cookie — they
   // must bypass the login redirect (Phase 5).
   if (pathname === "/api/payments/webhook") return true;
+  // Extension traffic authenticates with a Bearer token, not the cookie — pass
+  // it through so the handler's authorizeApi() returns 401 JSON instead of the
+  // middleware 307-ing to /login (same precedent as the Stripe webhook).
+  if (pathname.startsWith("/api/extension")) return true;
+  if (pathname.startsWith("/api/ai")) return true;
   return PUBLIC_PATHS.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );

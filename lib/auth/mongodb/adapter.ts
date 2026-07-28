@@ -15,8 +15,9 @@ import mongoose, { Schema, type Model } from "mongoose";
 import bcrypt from "bcryptjs";
 
 import { env } from "@/config/env.schema";
-import { db } from "@/lib/db";
+import { db, USER_STATUSES, type User } from "@/lib/db";
 import { connectMongo } from "@/lib/db/mongodb/adapter";
+import { startProTrialIfEligible } from "@/lib/payments/trials";
 
 import type { AuthAdapter } from "../adapter";
 import {
@@ -111,6 +112,17 @@ interface OAuthProfile {
   name: string | null;
 }
 
+/** Suspended/banned/pending-deletion accounts cannot sign in (data retained). */
+function assertAccountActive(user: Pick<User, "status">): void {
+  if (user.status === USER_STATUSES.active) return;
+  if (user.status === USER_STATUSES.pending_deletion) {
+    throw new Error(
+      "This account is scheduled for deletion. Contact support to restore it.",
+    );
+  }
+  throw new Error("This account has been suspended. Contact support.");
+}
+
 /* -------------------------------------------------------------------------- */
 
 export class MongoAuthAdapter implements AuthAdapter {
@@ -137,7 +149,8 @@ export class MongoAuthAdapter implements AuthAdapter {
     const claims = await verifyToken(token, TOKEN_PURPOSE.session);
     if (!claims) return null;
     const user = await db.getUserById(claims.sub);
-    if (!user) return null;
+    // Suspended/banned/pending-deletion accounts lose their session immediately.
+    if (!user || user.status !== USER_STATUSES.active) return null;
     return this.buildSession(toAuthUser(user));
   }
 
@@ -157,6 +170,7 @@ export class MongoAuthAdapter implements AuthAdapter {
     const user = await db.createUser({
       email: input.email,
       name: input.name ?? null,
+      unsubscribeToken: crypto.randomUUID(),
     });
     const passwordHash = await bcrypt.hash(input.password, 10);
     await AuthCredentialModel.create({
@@ -185,6 +199,7 @@ export class MongoAuthAdapter implements AuthAdapter {
     if (!credential) throw new Error("Invalid email or password");
     const ok = await bcrypt.compare(input.password, credential.password_hash);
     if (!ok) throw new Error("Invalid email or password");
+    assertAccountActive(user);
     await this.setSessionCookie(user.id);
     return this.buildSession(toAuthUser(user));
   }
@@ -348,15 +363,39 @@ export class MongoAuthAdapter implements AuthAdapter {
     return { email, name: info.name ?? info.login ?? null };
   }
 
+  /**
+   * Shared by OAuth and magic-link — both flows prove ownership of the email,
+   * so the account is marked verified (and the one-per-verified-email Pro
+   * trial starts) here, without a separate verification step.
+   */
   private async findOrCreateUser(
     email: string,
     name: string | null,
   ): Promise<AuthUser> {
     const existing = await db.getUserByEmail(email);
-    if (existing) return toAuthUser(existing);
-    const created = await db.createUser({ email, name });
-    const user = toAuthUser(created);
-    await ensureDefaultOrganization(user);
+    if (existing) {
+      assertAccountActive(existing);
+      if (!existing.emailVerifiedAt) {
+        const verified = await db.updateUser(existing.id, {
+          emailVerifiedAt: new Date(),
+        });
+        const orgId = await ensureDefaultOrganization(toAuthUser(verified));
+        await startProTrialIfEligible(verified.id, orgId);
+        return toAuthUser(verified);
+      }
+      return toAuthUser(existing);
+    }
+    const created = await db.createUser({
+      email,
+      name,
+      unsubscribeToken: crypto.randomUUID(),
+    });
+    const withVerification = await db.updateUser(created.id, {
+      emailVerifiedAt: new Date(),
+    });
+    const user = toAuthUser(withVerification);
+    const orgId = await ensureDefaultOrganization(user);
+    await startProTrialIfEligible(user.id, orgId);
     return user;
   }
 
@@ -390,11 +429,15 @@ function toAuthUser(user: {
   email: string;
   name?: string | null;
   isSuperAdmin?: boolean;
+  isSupportAdmin?: boolean;
+  emailVerifiedAt?: Date | null;
 }): AuthUser {
   return {
     id: user.id,
     email: user.email,
     name: user.name ?? null,
     isSuperAdmin: user.isSuperAdmin ?? false,
+    isSupportAdmin: user.isSupportAdmin ?? false,
+    emailVerified: Boolean(user.emailVerifiedAt),
   };
 }

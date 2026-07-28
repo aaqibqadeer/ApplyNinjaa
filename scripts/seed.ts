@@ -232,13 +232,10 @@ async function main(): Promise<void> {
     }
   }
 
-  // Ensure the platform settings singleton exists. ApplyNinjaa's 7-day Pro
-  // trial is local (no card, started at email verification) — the legacy
-  // Stripe-checkout trial is disabled by keeping trialDays at 0.
-  let settings = await db.getAppSettings();
-  if (settings.trialDays !== 0) {
-    settings = await db.updateAppSettings({ trialDays: 0 });
-  }
+  // Ensure the platform settings singleton exists. `trialDays` (default 7) is
+  // the length of the local no-card Pro trial started at email verification;
+  // the legacy Stripe-checkout trial is disabled in lib/payments/checkout.ts.
+  const settings = await db.getAppSettings();
 
   console.log("Seed complete:");
   console.log(`  organization  ${org.id} (${org.slug})`);

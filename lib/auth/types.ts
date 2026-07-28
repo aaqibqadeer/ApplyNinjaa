@@ -9,6 +9,11 @@ export interface AuthUser {
   name: string | null;
   /** Platform-level super-admin flag (§14) — independent of any org role. */
   isSuperAdmin: boolean;
+  /** Platform-level support-admin flag — limited admin tier, never merged
+   * with isSuperAdmin checks. */
+  isSupportAdmin: boolean;
+  /** Whether the user has verified their email address. */
+  emailVerified: boolean;
 }
 
 export interface Session {

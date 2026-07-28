@@ -58,7 +58,10 @@ export async function startCheckout(
     customerId,
     successUrl: `${base}/dashboard?checkout=success`,
     cancelUrl: `${base}/dashboard?checkout=cancelled`,
-    trialEnd: org.trialEndsAt ?? null,
+    // ApplyNinjaa's trial is local and card-free (lib/payments/trials.ts) —
+    // never forward a Stripe trial_end, or setting trialDays would silently
+    // reintroduce card-based trials at checkout.
+    trialEnd: null,
     metadata: { organizationId: org.id, planId: plan.id },
   });
 }
