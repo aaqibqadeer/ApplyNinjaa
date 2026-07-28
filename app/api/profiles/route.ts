@@ -3,15 +3,19 @@ import { NextResponse } from "next/server";
 import { authErrorResponse, authorizeApi } from "@/lib/auth/roles";
 import {
   createProfile,
-  listProfiles,
+  listProfileSummaries,
   profileInputSchema,
 } from "@/lib/profiles/service";
 
-/** List the caller's profiles (web dashboard + extension picker). */
+/**
+ * Profile summaries for the extension's picker. Summaries only — the full
+ * record (including decrypted EEO answers) is served solely by
+ * `GET /api/profiles/[id]` for the editor.
+ */
 export async function GET(request: Request): Promise<NextResponse> {
   try {
     const session = await authorizeApi(request);
-    const profiles = await listProfiles(session);
+    const profiles = await listProfileSummaries(session);
     return NextResponse.json({ ok: true, profiles });
   } catch (error) {
     return authErrorResponse(error);

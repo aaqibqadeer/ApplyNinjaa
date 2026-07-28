@@ -122,9 +122,30 @@ async function requireOwned(session: Session, id: string): Promise<Profile> {
   return profile;
 }
 
-export async function listProfiles(session: Session): Promise<OwnedProfile[]> {
+/** Just enough to render a picker — deliberately no resume or EEO data. */
+export interface ProfileSummary {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  updatedAt: Date;
+}
+
+/**
+ * Profile summaries for pickers (extension popup, selectors). Never decrypts
+ * EEO data: callers that list profiles don't need the most sensitive fields
+ * in the product, so they never leave the server. Use `getProfile` for the
+ * full record when editing.
+ */
+export async function listProfileSummaries(
+  session: Session,
+): Promise<ProfileSummary[]> {
   const profiles = await db.listProfilesForUser(session.user.id);
-  return profiles.map(toOwned);
+  return profiles.map((profile) => ({
+    id: profile.id,
+    name: profile.name,
+    isDefault: profile.isDefault,
+    updatedAt: profile.updatedAt,
+  }));
 }
 
 export async function getProfile(
