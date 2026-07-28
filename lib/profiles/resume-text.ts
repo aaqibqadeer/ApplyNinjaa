@@ -5,7 +5,7 @@
  */
 
 import mammoth from "mammoth";
-import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import { PDFParse } from "pdf-parse";
 
 export const MAX_RESUME_BYTES = 5 * 1024 * 1024; // 5 MB
 
@@ -22,6 +22,21 @@ export class UnsupportedResumeError extends Error {
   }
 }
 
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  // pdf-parse v2 spins up a pdf.js worker per parser — always destroy it, or
+  // the request handler leaks a worker per upload.
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  try {
+    const result = await parser.getText();
+    // Join the pages ourselves: the library's concatenated `text` interleaves
+    // "-- 1 of N --" page markers, which would read as resume content to the
+    // parsing model.
+    return result.pages.map((page) => page.text).join("\n\n");
+  } finally {
+    await parser.destroy();
+  }
+}
+
 export async function extractResumeText(
   buffer: Buffer,
   contentType: string | null,
@@ -32,8 +47,7 @@ export async function extractResumeText(
 
   let text: string;
   if (PDF_TYPES.has(type) || name.endsWith(".pdf")) {
-    const parsed = await pdfParse(buffer);
-    text = parsed.text;
+    text = await extractPdfText(buffer);
   } else if (DOCX_TYPES.has(type) || name.endsWith(".docx")) {
     const result = await mammoth.extractRawText({ buffer });
     text = result.value;
