@@ -136,3 +136,37 @@ timestamptz`; the `plans`, `app_settings`, and `subscriptions` tables (snake_cas
 - **Feature-gating.** `hasAccess(session, feature)` (`lib/payments/access.ts`) is
   the single entry point — it reads the active plan's `limits` JSON and returns
   `true` whenever payments is off, so no other code branches on the payments flag.
+
+## ApplyNinjaa domain tables
+
+This fork resolved `DB_PROVIDER` to **MongoDB** and removed the Supabase
+adapters (§1.5). The product tables below follow the standard rules: every
+tenant-scoped collection carries an indexed `organization_id` (org ≡ user in
+this fork — `multiTenant` is off, so each user has one silent default org),
+and each table shipped with its Zod schema (`lib/db/schema.ts`), adapter
+methods, and seed entry in the same commit (§1.4).
+
+| Entity | Collection | Tenant-scoped? | Notes |
+| --- | --- | --- | --- |
+| Profile | `profiles` | Yes | Multiple per user, unique `(user_id, name)`. Parsed resume data; `eeo` holds **field-level-encrypted ciphertext** only (lib/crypto). |
+| ProfileDomainPref | `profile_domain_prefs` | Yes | Last-used profile per job-site domain, unique `(user_id, domain)`. |
+| Application | `applications` | Yes | Tracked jobs; status enum (10 values), user-editable `fit_score`, denormalized `filter_results`. Indexed `(user_id, applied_at)` and `(user_id, status)`. |
+| JobFilter | `job_filters` | No (mixed) | `type: admin` = platform master list (no owner); `type: user` = one user's custom filter (`owner_id`). |
+| UserFilterSetting | `user_filter_settings` | Yes | Per-user enable/disable of filters, unique `(user_id, filter_id)`. |
+| AdminAction | `admin_actions` | No | Append-only audit log (who/what/when/why); reads newest-first. |
+| GmailScan | `gmail_scans` | Yes | Manual scan runs + per-email proposals; nothing writes to applications until a proposal is user-approved. |
+
+User extensions: `is_support_admin` (second platform admin tier — never merged
+with `is_super_admin` checks), `status` (active/suspended/banned/
+pending_deletion), `email_verified_at`, `trial_used_at` (one Pro trial per
+verified email), `deleted_at` (30-day soft delete), `marketing_emails_enabled`
++ `unsubscribe_token` (CAN-SPAM).
+
+Plan extensions: unique `slug` (stable lookup — `free`/`starter`/`pro`/
+`premium`; names and prices are admin-editable, slugs are create-only) and the
+`limits.aiCallsPerMonth` cap read by the AI quota enforcement.
+
+Operational data (AI usage counters, short-window rate limits) deliberately
+does NOT go through this adapter — it lives in the Mongo-only `lib/usage/`
+module because atomic `$inc` upserts and TTL indexes are Mongo primitives, the
+same precedent as `auth_credentials` in the auth adapter.

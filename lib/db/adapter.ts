@@ -15,33 +15,74 @@
  */
 
 import type {
+  AdminAction,
+  Application,
+  ApplicationStatus,
   AppSettings,
+  GmailScan,
   Invitation,
   InvitationStatus,
+  JobFilter,
+  NewAdminAction,
+  NewApplication,
+  NewGmailScan,
   NewInvitation,
+  NewJobFilter,
   NewOrganization,
   NewOrganizationMember,
   NewPlan,
+  NewProfile,
   NewSubscription,
   NewUser,
   Organization,
   OrganizationMember,
   OrgRole,
   Plan,
+  Profile,
+  ProfileDomainPref,
   Subscription,
+  UpdateApplication,
   UpdateAppSettings,
+  UpdateGmailScan,
+  UpdateJobFilter,
   UpdateOrganization,
   UpdatePlan,
+  UpdateProfile,
   UpdateSubscription,
   UpdateUser,
   User,
+  UserFilterSetting,
 } from "./schema";
+
+/** Paged user listing for the admin dashboard. */
+export interface ListUsersParams {
+  /** Case-insensitive match against email or name. */
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+export interface ListUsersResult {
+  users: User[];
+  total: number;
+}
+
+export interface ListAdminActionsParams {
+  limit?: number;
+  offset?: number;
+}
+export interface ListAdminActionsResult {
+  actions: AdminAction[];
+  total: number;
+}
 
 export interface DatabaseAdapter {
   /* -- Users (global identities) ------------------------------------------ */
   createUser(input: NewUser): Promise<User>;
   getUserById(id: string): Promise<User | null>;
   getUserByEmail(email: string): Promise<User | null>;
+  getUserByUnsubscribeToken(token: string): Promise<User | null>;
+  /** Paged search across all users (admin dashboard). */
+  listUsers(params?: ListUsersParams): Promise<ListUsersResult>;
   updateUser(id: string, patch: UpdateUser): Promise<User>;
   deleteUser(id: string): Promise<void>;
 
@@ -64,6 +105,8 @@ export interface DatabaseAdapter {
   listMembers(organizationId: string): Promise<OrganizationMember[]>;
   /** All memberships for a user across orgs — used to resolve org context. */
   listMembershipsForUser(userId: string): Promise<OrganizationMember[]>;
+  /** Batched variant for admin joins (user → default org → subscription). */
+  listMembershipsForUsers(userIds: string[]): Promise<OrganizationMember[]>;
   updateMemberRole(
     organizationId: string,
     userId: string,
@@ -94,6 +137,8 @@ export interface DatabaseAdapter {
   /* -- Plans (PLATFORM-LEVEL — no organizationId, §15) -------------------- */
   createPlan(input: NewPlan): Promise<Plan>;
   getPlanById(id: string): Promise<Plan | null>;
+  /** Stable-slug lookup ("free", "pro") — code never matches on names. */
+  getPlanBySlug(slug: string): Promise<Plan | null>;
   /** All plans (admin view), ordered by sortOrder. */
   listPlans(): Promise<Plan[]>;
   /** Active plans only (public pricing view), ordered by sortOrder. */
@@ -119,6 +164,74 @@ export interface DatabaseAdapter {
     id: string,
     patch: UpdateSubscription,
   ): Promise<Subscription>;
+  /** Batched variant for admin joins across many orgs. */
+  listSubscriptionsForOrgs(organizationIds: string[]): Promise<Subscription[]>;
+
+  /* -- Profiles (tenant-scoped; multiple per user) ------------------------- */
+  createProfile(input: NewProfile): Promise<Profile>;
+  getProfileById(id: string): Promise<Profile | null>;
+  listProfilesForUser(userId: string): Promise<Profile[]>;
+  updateProfile(id: string, patch: UpdateProfile): Promise<Profile>;
+  deleteProfile(id: string): Promise<void>;
+
+  /* -- Profile domain prefs (last-used profile per job-site domain) -------- */
+  setProfileDomainPref(
+    organizationId: string,
+    userId: string,
+    domain: string,
+    profileId: string,
+  ): Promise<ProfileDomainPref>;
+  getProfileDomainPref(
+    userId: string,
+    domain: string,
+  ): Promise<ProfileDomainPref | null>;
+
+  /* -- Applications (tenant-scoped) ---------------------------------------- */
+  createApplication(input: NewApplication): Promise<Application>;
+  getApplicationById(id: string): Promise<Application | null>;
+  /** All of a user's applications, newest appliedAt first. */
+  listApplicationsForUser(userId: string): Promise<Application[]>;
+  updateApplication(id: string, patch: UpdateApplication): Promise<Application>;
+  deleteApplication(id: string): Promise<void>;
+  /** Bulk delete, scoped to the owning user; returns the deleted count. */
+  deleteApplicationsForUser(userId: string, ids: string[]): Promise<number>;
+  /** Bulk status change, scoped to the owning user; returns the count. */
+  updateApplicationsStatusForUser(
+    userId: string,
+    ids: string[],
+    status: ApplicationStatus,
+  ): Promise<number>;
+
+  /* -- Job filters (admin master list + per-user custom) ------------------- */
+  createJobFilter(input: NewJobFilter): Promise<JobFilter>;
+  getJobFilterById(id: string): Promise<JobFilter | null>;
+  /** The admin-managed master list (both active and inactive, admin view). */
+  listAdminJobFilters(): Promise<JobFilter[]>;
+  /** Active admin defaults + this user's own custom filters. */
+  listJobFiltersForUser(userId: string): Promise<JobFilter[]>;
+  updateJobFilter(id: string, patch: UpdateJobFilter): Promise<JobFilter>;
+  deleteJobFilter(id: string): Promise<void>;
+
+  /* -- User filter settings (per-user enable/disable toggles) -------------- */
+  setUserFilterEnabled(
+    organizationId: string,
+    userId: string,
+    filterId: string,
+    enabled: boolean,
+  ): Promise<UserFilterSetting>;
+  listUserFilterSettings(userId: string): Promise<UserFilterSetting[]>;
+
+  /* -- Admin actions (append-only audit log) ------------------------------- */
+  createAdminAction(input: NewAdminAction): Promise<AdminAction>;
+  listAdminActions(
+    params?: ListAdminActionsParams,
+  ): Promise<ListAdminActionsResult>;
+
+  /* -- Gmail scans (manual, user-approved) --------------------------------- */
+  createGmailScan(input: NewGmailScan): Promise<GmailScan>;
+  getGmailScanById(id: string): Promise<GmailScan | null>;
+  listGmailScansForUser(userId: string): Promise<GmailScan[]>;
+  updateGmailScan(id: string, patch: UpdateGmailScan): Promise<GmailScan>;
 
   /* -- Lifecycle ---------------------------------------------------------- */
   /** Close underlying connections (used by scripts like seed). Optional. */

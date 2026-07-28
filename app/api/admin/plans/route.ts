@@ -7,6 +7,12 @@ import { db } from "@/lib/db";
 import { syncStripePrices } from "@/lib/payments/plans";
 
 const planInput = z.object({
+  /** Stable machine identifier — set at creation, never edited afterwards. */
+  slug: z
+    .string()
+    .min(1)
+    .max(40)
+    .regex(/^[a-z0-9-]+$/, "Slug must be lowercase letters/digits/hyphens"),
   name: z.string().min(1).max(80),
   description: z.string().max(500).nullish(),
   priceMonthly: z.number().int().min(0),
@@ -16,7 +22,12 @@ const planInput = z.object({
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 });
-const updateInput = planInput.partial().extend({ id: z.string().min(1) });
+// Slug is create-only — it's the stable lookup key (e.g. the trial finds
+// "pro"), so updates never change it.
+const updateInput = planInput
+  .omit({ slug: true })
+  .partial()
+  .extend({ id: z.string().min(1) });
 const deleteInput = z.object({ id: z.string().min(1) });
 
 function bad(message: string): NextResponse {
@@ -40,7 +51,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       priceMonthly: data.priceMonthly,
       priceAnnual: data.priceAnnual ?? null,
     });
+    if (await db.getPlanBySlug(data.slug)) {
+      return bad(`A plan with slug "${data.slug}" already exists`);
+    }
     const plan = await db.createPlan({
+      slug: data.slug,
       name: data.name,
       description: data.description ?? null,
       priceMonthly: data.priceMonthly,

@@ -22,11 +22,14 @@ import { auth } from "@/lib/auth";
 import {
   db,
   INVITATION_STATUSES,
+  JOB_FILTER_TYPES,
   ORG_ROLES,
+  PLAN_SLUGS,
   type Invitation,
   type NewInvitation,
   type NewOrganization,
   type NewOrganizationMember,
+  type NewPlan,
   type Organization,
 } from "@/lib/db";
 
@@ -118,46 +121,124 @@ async function main(): Promise<void> {
     expiresAt: new Date(Date.now() + INVITE_TTL_MS),
   });
 
-  // Platform pricing plans (§15). Placeholders only — count and names are just
-  // data (super admin edits them in the admin panel); nothing in app logic
-  // hardcodes them. Prices are integer minor units (cents). Seeded only when no
-  // plans exist yet, so re-runs don't duplicate them.
-  const existingPlans = await db.listPlans();
-  if (existingPlans.length === 0) {
-    await db.createPlan({
-      name: "Starter",
-      description: "For trying things out.",
-      priceMonthly: 0,
-      priceAnnual: 0,
-      annualDiscountPercent: null,
-      limits: { seats: 1, projects: 1, apiAccess: false },
-      isActive: true,
-      sortOrder: 0,
-    });
-    await db.createPlan({
-      name: "Pro",
-      description: "For growing teams.",
-      priceMonthly: 2900,
-      priceAnnual: 29000,
-      annualDiscountPercent: 17,
-      limits: { seats: 5, projects: 10, apiAccess: true },
-      isActive: true,
-      sortOrder: 1,
-    });
-    await db.createPlan({
-      name: "Enterprise",
-      description: "For organizations at scale.",
-      priceMonthly: 9900,
-      priceAnnual: 99000,
-      annualDiscountPercent: 17,
-      limits: { seats: -1, projects: -1, apiAccess: true, sso: true },
-      isActive: true,
-      sortOrder: 2,
-    });
+  // Seeded local users are treated as email-verified so credential login and
+  // trial logic behave like a real verified account.
+  for (const seeded of [admin, member]) {
+    const record = await db.getUserById(seeded.id);
+    if (record && !record.emailVerifiedAt) {
+      await db.updateUser(seeded.id, { emailVerifiedAt: new Date() });
+    }
   }
 
-  // Ensure the platform settings singleton exists (default trialDays).
-  const settings = await db.getAppSettings();
+  // Platform pricing plans (§15). Prices/names/caps are data (super admin edits
+  // them in the admin panel; Stripe ids are minted by scripts/sync-plans.ts) —
+  // nothing in app logic hardcodes them. Slugs are the stable lookups. Prices
+  // are integer minor units (cents); aiCallsPerMonth is the per-plan AI cap.
+  // Idempotent by slug.
+  const planSeeds: NewPlan[] = [
+    {
+      slug: PLAN_SLUGS.free,
+      name: "Free",
+      description: "Try ApplyNinjaa with 5 AI actions a month.",
+      priceMonthly: 0,
+      priceAnnual: null,
+      annualDiscountPercent: null,
+      limits: { aiCallsPerMonth: 5 },
+      isActive: true,
+      sortOrder: 0,
+    },
+    {
+      slug: PLAN_SLUGS.starter,
+      name: "Starter",
+      description: "For an active job search.",
+      priceMonthly: 399,
+      priceAnnual: 3830,
+      annualDiscountPercent: 20,
+      limits: { aiCallsPerMonth: 50 },
+      isActive: true,
+      sortOrder: 1,
+    },
+    {
+      slug: PLAN_SLUGS.pro,
+      name: "Pro",
+      description: "For a serious, high-volume search.",
+      priceMonthly: 699,
+      priceAnnual: 6710,
+      annualDiscountPercent: 20,
+      limits: { aiCallsPerMonth: 150 },
+      isActive: true,
+      sortOrder: 2,
+    },
+    {
+      slug: PLAN_SLUGS.premium,
+      name: "Premium",
+      description: "Maximum throughput for power users.",
+      priceMonthly: 999,
+      priceAnnual: 9590,
+      annualDiscountPercent: 20,
+      limits: { aiCallsPerMonth: 300 },
+      isActive: true,
+      sortOrder: 3,
+    },
+  ];
+  for (const planSeed of planSeeds) {
+    const existing = await db.getPlanBySlug(planSeed.slug);
+    if (!existing) await db.createPlan(planSeed);
+  }
+
+  // Admin-default "Valid Job" filters (product spec §4). Idempotent by label.
+  const defaultFilters = [
+    {
+      label: "Visa Sponsorship Available",
+      description:
+        "Does the job offer visa sponsorship (H1-B or similar) or explicitly say it cannot sponsor?",
+    },
+    {
+      label: "US Citizenship Required",
+      description:
+        "Does the posting require US citizenship (answer Yes when citizenship is required)?",
+    },
+    {
+      label: "Security Clearance Required",
+      description:
+        "Does the posting require an active or obtainable security clearance?",
+    },
+    {
+      label: "Work Authorization Match",
+      description:
+        "Is the candidate's stated work authorization compatible with the posting's requirements?",
+    },
+    {
+      label: "Remote/Hybrid/Onsite Match",
+      description:
+        "Does the job's work arrangement match the candidate's preferred arrangement?",
+    },
+    {
+      label: "Salary Range Disclosed",
+      description: "Does the posting disclose a salary or compensation range?",
+    },
+  ];
+  const existingAdminFilters = await db.listAdminJobFilters();
+  const existingLabels = new Set(existingAdminFilters.map((f) => f.label));
+  for (const filter of defaultFilters) {
+    if (!existingLabels.has(filter.label)) {
+      await db.createJobFilter({
+        label: filter.label,
+        description: filter.description,
+        type: JOB_FILTER_TYPES.admin,
+        ownerId: null,
+        isActive: true,
+      });
+    }
+  }
+
+  // Ensure the platform settings singleton exists. ApplyNinjaa's 7-day Pro
+  // trial is local (no card, started at email verification) — the legacy
+  // Stripe-checkout trial is disabled by keeping trialDays at 0.
+  let settings = await db.getAppSettings();
+  if (settings.trialDays !== 0) {
+    settings = await db.updateAppSettings({ trialDays: 0 });
+  }
 
   console.log("Seed complete:");
   console.log(`  organization  ${org.id} (${org.slug})`);
@@ -178,8 +259,10 @@ async function main(): Promise<void> {
   );
   const plans = await db.listPlans();
   console.log(
-    `  plans         ${plans.map((p) => p.name).join(", ") || "none"}`,
+    `  plans         ${plans.map((p) => `${p.name} (${p.slug})`).join(", ") || "none"}`,
   );
+  const filters = await db.listAdminJobFilters();
+  console.log(`  job filters   ${filters.length} admin defaults`);
   console.log(`  app settings  trialDays=${settings.trialDays}`);
   console.log(`  password for both: ${SEED_PASSWORD}`);
 

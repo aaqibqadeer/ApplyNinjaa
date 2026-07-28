@@ -43,6 +43,7 @@ export function PlanFormDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [slug, setSlug] = useState(plan?.slug ?? "");
   const [name, setName] = useState(plan?.name ?? "");
   const [description, setDescription] = useState(plan?.description ?? "");
   const [priceMonthly, setPriceMonthly] = useState(
@@ -84,7 +85,9 @@ export function PlanFormDialog({
       limits: parsedLimits,
       sortOrder: Number(sortOrder) || 0,
     };
+    // Slug is create-only (the stable lookup key) — never sent on edit.
     if (editing && plan) body.id = plan.id;
+    else body.slug = slug.trim().toLowerCase();
 
     setLoading(true);
     try {
@@ -121,6 +124,19 @@ export function PlanFormDialog({
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {!editing && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="plan-slug">Slug</Label>
+              <Input
+                id="plan-slug"
+                required
+                placeholder="e.g. pro"
+                pattern="[a-z0-9-]+"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+              />
+            </div>
+          )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="plan-name">Name</Label>
             <Input
