@@ -19,19 +19,28 @@ import type {
   Application,
   ApplicationStatus,
   AppSettings,
+  Campaign,
   GmailScan,
   Invitation,
   InvitationStatus,
   JobFilter,
+  Lead,
+  LeadCustomField,
+  LeadSource,
   NewAdminAction,
   NewApplication,
+  NewCampaign,
   NewGmailScan,
   NewInvitation,
   NewJobFilter,
+  NewLead,
+  NewLeadCustomField,
+  NewLeadSource,
   NewOrganization,
   NewOrganizationMember,
   NewPlan,
   NewProfile,
+  NewSavedView,
   NewSubscription,
   NewUser,
   Organization,
@@ -40,14 +49,19 @@ import type {
   Plan,
   Profile,
   ProfileDomainPref,
+  SavedView,
   Subscription,
   UpdateApplication,
   UpdateAppSettings,
+  UpdateCampaign,
   UpdateGmailScan,
   UpdateJobFilter,
+  UpdateLead,
+  UpdateLeadCustomField,
   UpdateOrganization,
   UpdatePlan,
   UpdateProfile,
+  UpdateSavedView,
   UpdateSubscription,
   UpdateUser,
   User,
@@ -72,6 +86,25 @@ export interface ListAdminActionsParams {
 }
 export interface ListAdminActionsResult {
   actions: AdminAction[];
+  total: number;
+}
+
+/**
+ * Paged lead listing. `filter` is a pre-built, plain Mongo-style query object
+ * (the shape produced by the query layer's `buildLeadQuery`) that the adapter
+ * passes straight to `find()`. Org scoping is applied BY THE ADAPTER: it strips
+ * any `organizationId`/`organization_id` the caller may have set on `filter` and
+ * forces the caller's `orgId`, so a caller can never read across tenants.
+ * Soft-deleted rows (`deleted_at != null`) are excluded by the adapter too.
+ */
+export interface ListLeadsParams {
+  filter?: Record<string, unknown>;
+  sort?: Record<string, 1 | -1>;
+  skip?: number;
+  limit?: number;
+}
+export interface ListLeadsResult {
+  leads: Lead[];
   total: number;
 }
 
@@ -232,6 +265,81 @@ export interface DatabaseAdapter {
   getGmailScanById(id: string): Promise<GmailScan | null>;
   listGmailScansForUser(userId: string): Promise<GmailScan[]>;
   updateGmailScan(id: string, patch: UpdateGmailScan): Promise<GmailScan>;
+
+  /* -- Leads (tenant-scoped by organizationId) ---------------------------- */
+  /**
+   * Paged lead listing. The adapter applies org scoping (forces `orgId`,
+   * strips any org key from `params.filter`) and excludes soft-deleted rows.
+   */
+  listLeads(orgId: string, params?: ListLeadsParams): Promise<ListLeadsResult>;
+  /** Count non-deleted leads matching a pre-built filter (org forced). */
+  countLeads(orgId: string, filter?: Record<string, unknown>): Promise<number>;
+  getLeadById(orgId: string, id: string): Promise<Lead | null>;
+  createLead(input: NewLead): Promise<Lead>;
+  updateLead(orgId: string, id: string, patch: UpdateLead): Promise<Lead>;
+  /** Soft delete — sets `deletedAt`; the row is retained. */
+  deleteLead(orgId: string, id: string): Promise<void>;
+  /** Bulk patch scoped to org + ids; returns the modified count. */
+  bulkUpdateLeads(
+    orgId: string,
+    ids: string[],
+    patch: UpdateLead,
+  ): Promise<number>;
+  /** Bulk soft delete scoped to org + ids; returns the affected count. */
+  bulkDeleteLeads(orgId: string, ids: string[]): Promise<number>;
+  /** Idempotent capture: upsert on `(organization_id, client_capture_id)`. */
+  upsertLeadByClientCaptureId(
+    orgId: string,
+    clientCaptureId: string,
+    data: NewLead,
+  ): Promise<{ lead: Lead; created: boolean }>;
+  /** Stream all matching non-deleted leads (org forced) for export. */
+  streamLeads(
+    orgId: string,
+    filter?: Record<string, unknown>,
+    sort?: Record<string, 1 | -1>,
+  ): AsyncGenerator<Lead>;
+
+  /* -- Lead sources (tenant-scoped raw provenance) ------------------------ */
+  createLeadSource(input: NewLeadSource): Promise<LeadSource>;
+  listLeadSourcesForLead(orgId: string, leadId: string): Promise<LeadSource[]>;
+
+  /* -- Campaigns (tenant-scoped by organizationId) ------------------------ */
+  createCampaign(input: NewCampaign): Promise<Campaign>;
+  getCampaignById(orgId: string, id: string): Promise<Campaign | null>;
+  listCampaigns(orgId: string): Promise<Campaign[]>;
+  updateCampaign(
+    orgId: string,
+    id: string,
+    patch: UpdateCampaign,
+  ): Promise<Campaign>;
+  deleteCampaign(orgId: string, id: string): Promise<void>;
+  /** Atomically bump a campaign's denormalized `leadCount` (default +1). */
+  incrementCampaignLeadCount(
+    orgId: string,
+    campaignId: string,
+    by?: number,
+  ): Promise<void>;
+
+  /* -- Saved views (tenant-scoped; per user) ------------------------------ */
+  createSavedView(input: NewSavedView): Promise<SavedView>;
+  listSavedViews(orgId: string, userId: string): Promise<SavedView[]>;
+  updateSavedView(
+    orgId: string,
+    id: string,
+    patch: UpdateSavedView,
+  ): Promise<SavedView>;
+  deleteSavedView(orgId: string, id: string): Promise<void>;
+
+  /* -- Lead custom fields (tenant-scoped column definitions) -------------- */
+  createLeadCustomField(input: NewLeadCustomField): Promise<LeadCustomField>;
+  listLeadCustomFields(orgId: string): Promise<LeadCustomField[]>;
+  updateLeadCustomField(
+    orgId: string,
+    id: string,
+    patch: UpdateLeadCustomField,
+  ): Promise<LeadCustomField>;
+  deleteLeadCustomField(orgId: string, id: string): Promise<void>;
 
   /* -- Lifecycle ---------------------------------------------------------- */
   /** Close underlying connections (used by scripts like seed). Optional. */

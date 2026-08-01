@@ -809,3 +809,328 @@ export const updateGmailScanSchema = z.object({
   proposals: z.array(gmailScanProposalSchema).optional(),
 });
 export type UpdateGmailScan = z.infer<typeof updateGmailScanSchema>;
+
+/* ========================================================================== */
+/* ScrapperNinja — leads, campaigns, sources, saved views, custom fields      */
+/* ========================================================================== */
+
+/* -------------------------------------------------------------------------- */
+/* Lead value sets (spec §14 — use these exact values)                        */
+/* -------------------------------------------------------------------------- */
+
+/** Workflow status of a lead as it moves from capture to export. */
+export const LEAD_STATUSES = [
+  "new",
+  "needs_review",
+  "ready",
+  "exported",
+  "junk",
+  "archived",
+] as const;
+export const leadStatusSchema = z.enum(LEAD_STATUSES);
+export type LeadStatus = z.infer<typeof leadStatusSchema>;
+
+/** Where a lead originated. */
+export const LEAD_SOURCE_TYPES = [
+  "google_maps",
+  "generic_web",
+  "manual",
+  "csv",
+] as const;
+export const leadSourceTypeSchema = z.enum(LEAD_SOURCE_TYPES);
+export type LeadSourceType = z.infer<typeof leadSourceTypeSchema>;
+
+/** Outreach automation tier a lead qualifies for (a = highest touch). */
+export const AUTOMATION_TIERS = ["a", "b", "c", "d"] as const;
+export const automationTierSchema = z.enum(AUTOMATION_TIERS);
+export type AutomationTier = z.infer<typeof automationTierSchema>;
+
+/** Whether the business has a usable website. */
+export const WEBSITE_STATUSES = ["has", "none", "bad", "unknown"] as const;
+export const websiteStatusSchema = z.enum(WEBSITE_STATUSES);
+export type WebsiteStatus = z.infer<typeof websiteStatusSchema>;
+
+/** Rough size bucket of the business. */
+export const BUSINESS_SIZES = [
+  "solo",
+  "small",
+  "medium",
+  "large",
+  "unknown",
+] as const;
+export const businessSizeSchema = z.enum(BUSINESS_SIZES);
+export type BusinessSize = z.infer<typeof businessSizeSchema>;
+
+/** Lifecycle of the async enrichment pass over a lead. */
+export const ENRICHMENT_STATUSES = [
+  "pending",
+  "running",
+  "done",
+  "failed",
+  "skipped",
+] as const;
+export const enrichmentStatusSchema = z.enum(ENRICHMENT_STATUSES);
+export type EnrichmentStatus = z.infer<typeof enrichmentStatusSchema>;
+
+/** Campaign lifecycle. */
+export const CAMPAIGN_STATUSES = ["active", "archived"] as const;
+export const campaignStatusSchema = z.enum(CAMPAIGN_STATUSES);
+export type CampaignStatus = z.infer<typeof campaignStatusSchema>;
+
+/** Data type of a user-defined lead custom field. */
+export const CUSTOM_FIELD_TYPES = [
+  "text",
+  "number",
+  "date",
+  "select",
+  "boolean",
+] as const;
+export const customFieldTypeSchema = z.enum(CUSTOM_FIELD_TYPES);
+export type CustomFieldType = z.infer<typeof customFieldTypeSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* Lead (tenant-scoped: carries organization_id)                              */
+/* -------------------------------------------------------------------------- */
+
+/** Postal address captured from the source; every part is best-effort/nullable. */
+export const leadAddressSchema = z.object({
+  raw: z.string().nullable().optional(),
+  street: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
+  postalCode: z.string().nullable().optional(),
+  country: z.string().nullable().optional(),
+});
+export type LeadAddress = z.infer<typeof leadAddressSchema>;
+
+/** Social profile URLs discovered during enrichment. */
+export const leadSocialsSchema = z.object({
+  facebook: z.string().nullable().optional(),
+  instagram: z.string().nullable().optional(),
+  linkedin: z.string().nullable().optional(),
+  x: z.string().nullable().optional(),
+  youtube: z.string().nullable().optional(),
+  tiktok: z.string().nullable().optional(),
+});
+export type LeadSocials = z.infer<typeof leadSocialsSchema>;
+
+/** PageSpeed scores (0-100) for the business website, mobile + desktop. */
+export const leadPageSpeedSchema = z.object({
+  mobile: z.number().nullable().optional(),
+  desktop: z.number().nullable().optional(),
+});
+export type LeadPageSpeed = z.infer<typeof leadPageSpeedSchema>;
+
+export const leadSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  /* -- identity ------------------------------------------------------------ */
+  campaignIds: z.array(z.string()).default([]),
+  sourceType: leadSourceTypeSchema,
+  sourceUrl: z.string().nullable().optional(),
+  capturedAt: z.coerce.date(),
+  capturedByUserId: z.string().nullable().optional(),
+  /** Client-generated idempotency key for capture (unique per org, sparse). */
+  clientCaptureId: z.string().nullable().optional(),
+  /* -- captured ------------------------------------------------------------ */
+  businessName: z.string().min(1),
+  category: z.string().nullable().optional(),
+  categories: z.array(z.string()).default([]),
+  phone: z.string().nullable().optional(),
+  phoneE164: z.string().nullable().optional(),
+  website: z.string().nullable().optional(),
+  websiteDomain: z.string().nullable().optional(),
+  address: leadAddressSchema.default({}),
+  lat: z.number().nullable().optional(),
+  lng: z.number().nullable().optional(),
+  rating: z.number().nullable().optional(),
+  reviewCount: z.number().nullable().optional(),
+  priceLevel: z.number().nullable().optional(),
+  hours: z.string().nullable().optional(),
+  plusCode: z.string().nullable().optional(),
+  /* -- enriched ------------------------------------------------------------ */
+  ownerName: z.string().nullable().optional(),
+  emails: z.array(z.string()).default([]),
+  socials: leadSocialsSchema.default({}),
+  techStack: z.array(z.string()).default([]),
+  pageSpeed: leadPageSpeedSchema.default({}),
+  businessSize: businessSizeSchema.default("unknown"),
+  industrySubType: z.string().nullable().optional(),
+  websiteStatus: websiteStatusSchema.default("unknown"),
+  enrichmentStatus: z.string().nullable().optional(),
+  enrichedAt: z.coerce.date().nullable().optional(),
+  /* -- generated ----------------------------------------------------------- */
+  offerLine: z.string().nullable().optional(),
+  offerLineEditedAt: z.coerce.date().nullable().optional(),
+  offerLinePromptId: z.string().nullable().optional(),
+  score: z.number().min(0).max(100).nullable().optional(),
+  scoreReasoning: z.string().nullable().optional(),
+  /* -- workflow ------------------------------------------------------------ */
+  status: leadStatusSchema.default("new"),
+  notes: z.string().default(""),
+  customFields: z.record(z.string(), z.unknown()).default({}),
+  parseIssues: z.array(z.string()).default([]),
+  rawSnippet: z.string().nullable().optional(),
+  dedupeKeys: z.array(z.string()).default([]),
+  mergedIntoId: z.string().nullable().optional(),
+  exportedAt: z.coerce.date().nullable().optional(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  /** Soft-delete marker — set instead of removing the row. */
+  deletedAt: z.coerce.date().nullable().optional(),
+});
+export type Lead = z.infer<typeof leadSchema>;
+
+export const newLeadSchema = leadSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewLead = z.infer<typeof newLeadSchema>;
+
+export const updateLeadSchema = newLeadSchema
+  .omit({ organizationId: true })
+  .partial();
+export type UpdateLead = z.infer<typeof updateLeadSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* Campaign (tenant-scoped: carries organization_id)                          */
+/* -------------------------------------------------------------------------- */
+
+export const campaignSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  query: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  sourceType: leadSourceTypeSchema.nullable().optional(),
+  status: campaignStatusSchema.default("active"),
+  /** Denormalized count kept in sync via `incrementCampaignLeadCount`. */
+  leadCount: z.number().int().nonnegative().default(0),
+  createdByUserId: z.string(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type Campaign = z.infer<typeof campaignSchema>;
+
+export const newCampaignSchema = campaignSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewCampaign = z.infer<typeof newCampaignSchema>;
+
+export const updateCampaignSchema = newCampaignSchema
+  .omit({ organizationId: true, createdByUserId: true })
+  .partial();
+export type UpdateCampaign = z.infer<typeof updateCampaignSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* LeadSource (tenant-scoped: raw provenance for each captured lead)          */
+/* -------------------------------------------------------------------------- */
+
+export const leadSourceSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  leadId: z.string(),
+  sourceType: leadSourceTypeSchema,
+  sourceUrl: z.string().nullable().optional(),
+  campaignId: z.string().nullable().optional(),
+  capturedAt: z.coerce.date(),
+  /** Untouched provider payload (Google Maps JSON, scraped DOM, CSV row…). */
+  rawPayload: z.record(z.string(), z.unknown()).default({}),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type LeadSource = z.infer<typeof leadSourceSchema>;
+
+export const newLeadSourceSchema = leadSourceSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewLeadSource = z.infer<typeof newLeadSourceSchema>;
+
+export const updateLeadSourceSchema = newLeadSourceSchema
+  .omit({ organizationId: true, leadId: true })
+  .partial();
+export type UpdateLeadSource = z.infer<typeof updateLeadSourceSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* SavedView (tenant-scoped: a user's saved leads table configuration)        */
+/* -------------------------------------------------------------------------- */
+
+export const savedViewSortSchema = z.object({
+  key: z.string(),
+  dir: z.enum(["asc", "desc"]),
+});
+export type SavedViewSort = z.infer<typeof savedViewSortSchema>;
+
+/** Allowed page sizes for the leads table. */
+export const SAVED_VIEW_PAGE_SIZES = [25, 50, 100, 250] as const;
+export const savedViewPageSizeSchema = z.union([
+  z.literal(25),
+  z.literal(50),
+  z.literal(100),
+  z.literal(250),
+]);
+export type SavedViewPageSize = z.infer<typeof savedViewPageSizeSchema>;
+
+export const savedViewSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  userId: z.string(),
+  name: z.string().min(1),
+  columns: z.array(z.string()).default([]),
+  filters: z.record(z.string(), z.unknown()).default({}),
+  sort: savedViewSortSchema.default({ key: "createdAt", dir: "desc" }),
+  pageSize: savedViewPageSizeSchema.default(25),
+  isDefault: z.boolean().default(false),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type SavedView = z.infer<typeof savedViewSchema>;
+
+export const newSavedViewSchema = savedViewSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewSavedView = z.infer<typeof newSavedViewSchema>;
+
+export const updateSavedViewSchema = newSavedViewSchema
+  .omit({ organizationId: true, userId: true })
+  .partial();
+export type UpdateSavedView = z.infer<typeof updateSavedViewSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* LeadCustomField (tenant-scoped: per-org custom column definitions)         */
+/* -------------------------------------------------------------------------- */
+
+export const leadCustomFieldSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  /** Machine slug used as the key inside a lead's `customFields` map. */
+  key: z.string().min(1),
+  label: z.string().min(1),
+  type: customFieldTypeSchema,
+  /** Choices for `select`-type fields; empty for other types. */
+  options: z.array(z.string()).default([]),
+  sortOrder: z.number().int().default(0),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type LeadCustomField = z.infer<typeof leadCustomFieldSchema>;
+
+export const newLeadCustomFieldSchema = leadCustomFieldSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewLeadCustomField = z.infer<typeof newLeadCustomFieldSchema>;
+
+export const updateLeadCustomFieldSchema = newLeadCustomFieldSchema
+  .omit({ organizationId: true })
+  .partial();
+export type UpdateLeadCustomField = z.infer<typeof updateLeadCustomFieldSchema>;
