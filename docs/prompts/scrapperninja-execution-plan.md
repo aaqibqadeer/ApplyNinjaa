@@ -128,15 +128,15 @@ git fetch origin staging && git checkout -b ScrapperNinja origin/staging
 - Do NOT delete files, do NOT remove deps (mammoth, pdf-parse stay).
 - Document the flag in docs/architecture/feature-flags.md.
 
-## 2. Rebrand
-- config/brand.ts → APP_NAME "ScrapperNinja", new APP_DESCRIPTION/APP_TAGLINE
-  for lead generation.
-- Rewrite components/marketing/{Hero,HowItWorks,Testimonials}.tsx and the
-  pricing copy for lead-gen positioning (find local businesses, capture them
-  from any directory, enrich and score them, export cold-email-ready CSVs).
-  Keep the existing component structure and theme tokens — copy change only.
-- Update app/layout.tsx metadata, app/privacy, app/terms, app/cookie-policy
-  copy where it references resumes/Gmail/job applications.
+## 2. Branding  [AMENDED — see docs/guides/two-product-production-plan.md]
+ApplyNinjaa ALSO ships to production, so nothing gets rebranded in place.
+Phase P0 of the production plan introduces config/products.ts plus a required
+NEXT_PUBLIC_PRODUCT env var, which drive name, description, marketing copy and
+the product-specific legal text for BOTH products.
+- If P0 has landed: add or refine the `scrapperninja` entry in
+  config/products.ts and change nothing else.
+- If it has not: do P0 first. Rewriting config/brand.ts or the marketing
+  components in place would have to be undone.
 - Routing: /leads is the Lead Directory and the post-login landing page.
   app/dashboard/page.tsx redirects to /leads when jobApplications is off.
 
@@ -340,8 +340,12 @@ DeepSeek on the server.
 - extension/src/lib/api.ts — Bearer auth that exchanges the dashboard session
   cookie for a token at POST /api/auth/extension-token and retries once on 401.
   Reuse it unchanged.
-- extension/src/background.ts and popup/App.tsx are ApplyNinja's fill-a-field
-  feature. Replace their contents.
+- extension/src/background.ts and popup/App.tsx are ApplyNinjaa's fill-a-field
+  feature. [AMENDED] DO NOT replace them — ApplyNinjaa's extension also ships
+  to production. Phase P1 of docs/guides/two-product-production-plan.md moves
+  the extension to a per-product layout. Build ScrapperNinja's background,
+  popup and content script under extension/products/scrapperninja/ and leave
+  ApplyNinjaa's files untouched. Do P1 first if it has not landed.
 
 ## 1. Source adapter architecture
 extension/src/scrapers/types.ts:
@@ -379,13 +383,13 @@ is reachable, and the popup shows a visible ban-risk warning. Enforce this in
 the service worker, not just the UI.
 
 ## 2. Content script (build gotcha — read carefully)
-MV3 content scripts CANNOT be ES modules, but the existing vite config sets
-rollup output format "es" globally for the popup and service worker. Rollup
-cannot mix formats in one build. So:
-  - keep the current build for popup + background (format "es")
-  - add extension/vite.content.config.ts producing content.js as IIFE with
-    emptyOutDir: false
-  - chain them: "build": "vite build && vite build --config vite.content.config.ts"
+MV3 content scripts CANNOT be ES modules, but the vite config builds the popup
+and service worker with rollup output format "es", and rollup cannot mix
+formats in one build. Phase P1 of the production plan adds
+extension/vite.content.config.ts (IIFE output, emptyOutDir false) and chains it
+into the scrapperninja build. Write
+extension/products/scrapperninja/src/content.ts against that; if P1 has not
+landed, add the second pass exactly as P1 describes.
 
 Injection strategy — avoid requesting <all_urls>, which scares users at install:
   - declare a static content_script only for https://www.google.com/maps/*
@@ -467,8 +471,10 @@ Badge: chrome.action.setBadgeText with the live captured count.
   patches) and the generic adapter's block-detection heuristic.
 
 ## Definition of done
-npm run lint / typecheck / test pass. npm run build:extension produces a dist/
-that loads unpacked in Chrome. Signing in to the dashboard then opening the
+npm run lint / typecheck / test pass. npm run build:extension:scrapper produces
+extension/dist/scrapperninja/ which loads unpacked in Chrome, and
+npm run build:extension:apply still produces a working ApplyNinjaa extension.
+Signing in to the dashboard then opening the
 popup on a Google Maps search lets you pick a campaign, run a Deep capture, see
 the badge count climb, and find the businesses at /leads with phone and website
 populated and correct source URLs. Killing the network mid-capture keeps
