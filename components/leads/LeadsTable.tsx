@@ -1042,23 +1042,11 @@ export function LeadsTable({
                       onChange={(e) => toggleRow(lead.id, e.target.checked)}
                     />
                   </TableCell>
-                  {shownColumns.map((column) => {
-                    const interactive =
-                      column.editable ||
-                      column.key === "status" ||
-                      column.key === "website";
-                    return (
-                      <TableCell
-                        key={column.key}
-                        className="max-w-56"
-                        onClick={
-                          interactive ? (e) => e.stopPropagation() : undefined
-                        }
-                      >
-                        {cellContent(lead, column)}
-                      </TableCell>
-                    );
-                  })}
+                  {shownColumns.map((column) => (
+                    <TableCell key={column.key} className="max-w-56">
+                      {cellContent(lead, column)}
+                    </TableCell>
+                  ))}
                 </TableRow>
               ))}
             </TableBody>

@@ -25,8 +25,10 @@ export interface InlineEditCellProps {
 }
 
 /**
- * A click-to-edit table cell. Enter/blur commits (optimistically), Escape
- * cancels and restores the prior value. Renders a muted placeholder when empty.
+ * A double-click-to-edit table cell (so a single click can bubble to a row
+ * handler, e.g. open a detail drawer). Enter/blur commits (optimistically),
+ * Escape cancels and restores the prior value. Renders a muted placeholder
+ * when empty.
  */
 export function InlineEditCell({
   value,
@@ -79,6 +81,7 @@ export function InlineEditCell({
           ref={selectRef}
           className={cn("h-8", className)}
           value={draft}
+          onClick={(e) => e.stopPropagation()}
           onChange={(e) => commit(e.target.value)}
           onBlur={() => setEditing(false)}
           onKeyDown={(e) => {
@@ -98,6 +101,7 @@ export function InlineEditCell({
         ref={inputRef}
         className={cn("h-8", className)}
         value={draft}
+        onClick={(e) => e.stopPropagation()}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => commit(draft)}
         onKeyDown={(e) => {
@@ -120,7 +124,12 @@ export function InlineEditCell({
   return (
     <button
       type="button"
-      onClick={() => setEditing(true)}
+      title="Double-click to edit"
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setEditing(true);
+      }}
       className={cn(
         "hover:bg-accent focus-visible:ring-ring block w-full truncate rounded-sm px-1 py-0.5 text-left text-sm focus-visible:ring-2 focus-visible:outline-none",
         className,
