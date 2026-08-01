@@ -13,6 +13,8 @@ export interface CollectedField {
   name: string | null;
   placeholder: string | null;
   fieldType: string | null;
+  /** The browser's own autofill hint — the strongest signal when present. */
+  autocomplete: string | null;
   options?: string[];
 }
 
@@ -90,6 +92,7 @@ export function collectPageData(): CollectedPage {
       name: el.getAttribute("name"),
       placeholder: el.getAttribute("placeholder"),
       fieldType: type,
+      autocomplete: el.getAttribute("autocomplete"),
     };
     if (el instanceof HTMLSelectElement) {
       field.options = Array.from(el.options)
@@ -196,6 +199,7 @@ export function describeActiveElement(): CollectedField | null {
     name: el.getAttribute("name"),
     placeholder: el.getAttribute("placeholder"),
     fieldType: (el.getAttribute("type") ?? el.tagName).toLowerCase(),
+    autocomplete: el.getAttribute("autocomplete"),
   };
   if (el instanceof HTMLSelectElement) {
     field.options = Array.from(el.options)

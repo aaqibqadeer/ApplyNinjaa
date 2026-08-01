@@ -7,6 +7,11 @@ import { AppHeader } from "@/components/shared/AppHeader";
 import { Button } from "@/components/ui/button";
 import { requireAuth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
+import {
+  hasAccess,
+  lowestPlanWith,
+  PLAN_FEATURES,
+} from "@/lib/payments/access";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -16,6 +21,10 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const session = await requireAuth();
   const profiles = await db.listProfilesForUser(session.user.id);
+  const canExport = await hasAccess(session, PLAN_FEATURES.dataExport);
+  const exportPlan = canExport
+    ? null
+    : ((await lowestPlanWith(PLAN_FEATURES.dataExport))?.name ?? null);
 
   return (
     <>
@@ -45,7 +54,7 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <ApplicationsTable />
+        <ApplicationsTable canExport={canExport} exportPlan={exportPlan} />
       </main>
     </>
   );

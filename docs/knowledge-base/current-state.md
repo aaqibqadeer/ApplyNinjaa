@@ -3,9 +3,9 @@
 > **Read this first, every session** (CLAUDE.md §11). Living **snapshot** —
 > overwritten, not appended. Keep it terse. Update at the end of every phase.
 
-_Last updated: 2026-07-28 — **v1.1 in progress**: first live run happened;
-three crash/data-loss bugs found and fixed. Remaining v1.1 scope (tiers,
-extension redesign, branding, production roadmap) is planned but NOT built._
+_Last updated: 2026-07-28 — **v1.1 complete** (bug fixes, tier entitlements,
+profile saved answers, extension redesign, filter semantics + /help, violet
+palette, production roadmap + CI). Not yet run against a live database._
 
 ## What this fork is
 
@@ -67,9 +67,24 @@ H4-EAD). v1 shipped on `staging`; v1.1 work is on
   (user-initiated-actions clause), `/cookie-policy`; cookie banner on;
   30-day soft delete (self-serve + admin) → `npm run hard-delete` purges PII;
   marketing emails opt-out via settings + tokenized one-click unsubscribe.
-- **Theme**: navy/blue oklch palette in `config/theme.ts` + `globals.css`
-  (both, hand-mirrored) + extension popup css; dark mode toggle + pre-
-  hydration script.
+- **Theme**: violet oklch palette (primary hue 300) in `config/theme.ts` +
+  `globals.css` (both, hand-mirrored) + extension popup css; dark mode toggle
+  - pre-hydration script. Values verified in-gamut and AA-contrast — oklch can
+    express colours sRGB can't, and browsers clip them silently.
+- **Entitlements**: `plans.limits` carries `profileLimit`, `customFilters`,
+  `gmailScan`, `dataExport` alongside `aiCallsPerMonth`. Booleans →
+  `requireFeature()` (402 `FEATURE_LOCKED`); numerics → typed readers in
+  `lib/usage/enforce.ts` (never `hasAccess`). Gate creation only, never delete
+  on downgrade. Matrix + rationale in `docs/architecture/data-layer.md`.
+- **Free trial grants Starter** (not Pro): `startTrialIfEligible`,
+  `TRIAL_PLAN_SLUG` in `lib/payments/trials.ts`.
+- **Extension**: opening the popup costs ZERO AI calls. Six actions; only
+  Check Fit Score and AI Fill bill. Quick Fill matches offline in the popup
+  (`extension/src/lib/quick-fill.ts`) so it survives the cap. Re-track appends
+  to `applications.additionalLinks`, primary `url` unchanged.
+- **Hosting**: Railway + MongoDB Atlas. CI in `.github/workflows/ci.yml`; no
+  CD workflow by design (Railway's GitHub integration + "Wait for CI").
+  Roadmap: `docs/guides/production-roadmap.md`.
 
 ## Verification status
 
@@ -83,6 +98,10 @@ H4-EAD). v1 shipped on `staging`; v1.1 work is on
   dated entry in `decisions.md`: PDF upload crashed (pdfjs bundling), creating
   a second profile crashed (client-reference proxy spread), and editing a
   profile silently wiped `projects`. Everything else below still stands.
+- **v1.1 features are typecheck/lint/build-verified only.** No entitlement
+  gate, seed backfill, Quick Fill match, or Re-track has run against a live
+  database or a real page. Re-run `npm run seed` before testing tiers — the
+  new limit keys only reach an existing database that way.
 - **Never runtime-verified against a live MongoDB** — no Docker/mongod in the
   build sandbox (proxy blocks mongo binary downloads). First run needs:
   `.env.local` (see .env.example), `docker compose up -d`, `npm run seed`,

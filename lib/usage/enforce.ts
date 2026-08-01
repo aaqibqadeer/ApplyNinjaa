@@ -8,9 +8,16 @@
  * warnings (product spec).
  */
 
+import { features } from "@/config/features";
 import type { Session } from "@/lib/auth/types";
 import { sendAiLimitReachedEmail } from "@/lib/email/templates";
-import { getEffectivePlan, type EffectivePlan } from "@/lib/payments/access";
+import {
+  EntitlementError,
+  getEffectivePlan,
+  lowestPlanWithLimitAbove,
+  readNumericLimit,
+  type EffectivePlan,
+} from "@/lib/payments/access";
 
 import {
   currentPeriod,
@@ -18,6 +25,9 @@ import {
   incrementMonthlyAiUsage,
 } from "./ai-usage";
 import { enforceRateLimit, requestIp } from "./rate-limit";
+
+const PROFILE_LIMIT_KEY = "profileLimit";
+const PROFILE_LIMIT_FALLBACK = 1;
 
 /** Short-window abuse limits, on top of the monthly cap. */
 const PER_USER_LIMIT = { limit: 20, windowSeconds: 60 };
@@ -54,6 +64,44 @@ export function getAiCallCap(plan: EffectivePlan["plan"]): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? Math.floor(value)
     : 0;
+}
+
+/**
+ * The plan's max profile count. An absent/malformed value falls back to 1, so
+ * a misconfigured plan degrades to the Free allowance rather than locking
+ * everyone out of profiles entirely.
+ *
+ * Deliberately NOT `hasAccess()` — that coerces any positive number to `true`.
+ */
+export function getProfileLimit(plan: EffectivePlan["plan"]): number {
+  return readNumericLimit(plan, PROFILE_LIMIT_KEY, PROFILE_LIMIT_FALLBACK);
+}
+
+/**
+ * Assert the user has room for one more profile. Limits gate CREATION only:
+ * someone who downgrades keeps every existing profile readable and editable
+ * (never delete user data on downgrade) — they simply can't add another.
+ */
+export async function enforceProfileLimit(
+  session: Session,
+  currentCount: number,
+): Promise<void> {
+  if (!features.payments.enabled) return;
+  const { plan } = await getEffectivePlan(session);
+  const limit = getProfileLimit(plan);
+  if (currentCount < limit) return;
+  const upgrade = await lowestPlanWithLimitAbove(
+    PROFILE_LIMIT_KEY,
+    limit,
+    PROFILE_LIMIT_FALLBACK,
+  );
+  throw new EntitlementError(
+    PROFILE_LIMIT_KEY,
+    upgrade?.name ?? null,
+    limit === 1
+      ? "Your plan includes one profile — upgrade to create more"
+      : `Your plan includes ${limit} profiles — upgrade to create more`,
+  );
 }
 
 export interface QuotaResult {

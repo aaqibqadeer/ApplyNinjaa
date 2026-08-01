@@ -37,6 +37,7 @@ export async function AppHeader({ session }: AppHeaderProps) {
       ? [{ href: "/settings/billing", label: "Billing" }]
       : []),
     { href: "/settings/account", label: "Account" },
+    { href: "/help", label: "Help" },
     ...(features.multiTenant && isOrgAdmin
       ? [{ href: "/settings/organization", label: "Organization" }]
       : []),

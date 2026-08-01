@@ -15,6 +15,7 @@ import {
   JOB_FILTER_TYPES,
   type JobFilter,
 } from "@/lib/db";
+import { PLAN_FEATURES, requireFeature } from "@/lib/payments/access";
 
 class FilterError extends Error {
   readonly status: number;
@@ -62,6 +63,7 @@ export async function createUserFilter(
   session: Session,
   input: UserFilterInput,
 ): Promise<FilterWithSetting> {
+  await requireFeature(session, PLAN_FEATURES.customFilters);
   const filter = await db.createJobFilter({
     label: input.label,
     description: input.description ?? null,

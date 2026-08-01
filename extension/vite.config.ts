@@ -11,7 +11,7 @@
  * lands in both the manifest host_permissions and the API client.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import tailwindcss from "@tailwindcss/vite";
@@ -20,6 +20,16 @@ import { defineConfig, type Plugin } from "vite";
 
 const API_ORIGIN = process.env.VITE_API_ORIGIN ?? "http://localhost:3000";
 
+/** Toolbar icon sizes Chrome asks for, by convention. */
+const ICON_SIZES = [16, 32, 48, 128] as const;
+
+/**
+ * Copy extension/icons/icon-<size>.png into the bundle and declare them in the
+ * manifest — but ONLY the ones that actually exist. Declaring a missing icon
+ * makes Chrome refuse to load the extension, so an absent icon set simply
+ * yields a manifest without `icons`, exactly as before. Dropping the PNGs in
+ * is therefore a pure file-add with no code change.
+ */
 function emitManifest(): Plugin {
   return {
     name: "emit-manifest",
@@ -28,10 +38,33 @@ function emitManifest(): Plugin {
         resolve(__dirname, "manifest.template.json"),
         "utf8",
       );
+      const manifest = JSON.parse(
+        template.replaceAll("__API_ORIGIN__", API_ORIGIN),
+      ) as Record<string, unknown> & {
+        action?: Record<string, unknown>;
+      };
+
+      const icons: Record<string, string> = {};
+      for (const size of ICON_SIZES) {
+        const source = resolve(__dirname, `icons/icon-${size}.png`);
+        if (!existsSync(source)) continue;
+        const fileName = `icons/icon-${size}.png`;
+        this.emitFile({
+          type: "asset",
+          fileName,
+          source: readFileSync(source),
+        });
+        icons[String(size)] = fileName;
+      }
+      if (Object.keys(icons).length > 0) {
+        manifest.icons = icons;
+        if (manifest.action) manifest.action.default_icon = icons;
+      }
+
       this.emitFile({
         type: "asset",
         fileName: "manifest.json",
-        source: template.replaceAll("__API_ORIGIN__", API_ORIGIN),
+        source: JSON.stringify(manifest, null, 2),
       });
     },
   };

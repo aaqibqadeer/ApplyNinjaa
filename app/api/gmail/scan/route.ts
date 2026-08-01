@@ -4,6 +4,7 @@ import { z } from "zod";
 import { features, isAnyAiEnabled } from "@/config/features";
 import { authErrorResponse, authorize } from "@/lib/auth/roles";
 import { runScan } from "@/lib/gmail/scan";
+import { PLAN_FEATURES, requireFeature } from "@/lib/payments/access";
 import { enforceAiQuota, enforceAiRateLimits } from "@/lib/usage/enforce";
 
 // Scans do live Gmail fetches + batched classification; allow up to 2 min.
@@ -27,6 +28,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   try {
     const session = await authorize();
+    await requireFeature(session, PLAN_FEATURES.gmailScan);
     await enforceAiRateLimits(request, session);
     const parsed = schema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) {

@@ -4,9 +4,15 @@ import Link from "next/link";
 import { ProfileList } from "@/components/profiles/ProfileList";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { UpgradeNotice } from "@/components/shared/UpgradeNotice";
 import { Button } from "@/components/ui/button";
 import { requireAuth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
+import {
+  getEffectivePlan,
+  lowestPlanWithLimitAbove,
+} from "@/lib/payments/access";
+import { getProfileLimit } from "@/lib/usage/enforce";
 
 export const metadata: Metadata = { title: "Profiles" };
 
@@ -15,6 +21,15 @@ export const dynamic = "force-dynamic";
 export default async function ProfilesPage() {
   const session = await requireAuth();
   const profiles = await db.listProfilesForUser(session.user.id);
+
+  // Limits gate creation only — every existing profile stays fully editable
+  // after a downgrade (we never delete user data on downgrade).
+  const { plan } = await getEffectivePlan(session);
+  const limit = getProfileLimit(plan);
+  const atLimit = profiles.length >= limit;
+  const upgradePlan = atLimit
+    ? ((await lowestPlanWithLimitAbove("profileLimit", limit, 1))?.name ?? null)
+    : null;
 
   return (
     <>
@@ -28,9 +43,17 @@ export default async function ProfilesPage() {
               “Backend/AI”) — pick one in the extension before autofilling.
             </p>
           </div>
-          <Button asChild>
-            <Link href="/profiles/new">New profile</Link>
-          </Button>
+          {atLimit ? (
+            <Button asChild variant="outline">
+              <Link href="/settings/billing">
+                {upgradePlan ? `Upgrade for more` : "Profile limit reached"}
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild>
+              <Link href="/profiles/new">New profile</Link>
+            </Button>
+          )}
         </div>
 
         {profiles.length === 0 ? (
@@ -52,6 +75,20 @@ export default async function ProfilesPage() {
               updatedAt: p.updatedAt.toISOString(),
             }))}
           />
+        )}
+
+        {atLimit && (
+          <div className="mt-6">
+            <UpgradeNotice
+              title={
+                limit === 1
+                  ? "Your plan includes one profile"
+                  : `Your plan includes ${limit} profiles`
+              }
+              description="Extra profiles let you keep separate resumes and answers for different tracks — for example Frontend versus Backend/AI — and pick one per application."
+              requiredPlan={upgradePlan}
+            />
+          </div>
         )}
       </main>
     </>

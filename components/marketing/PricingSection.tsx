@@ -49,7 +49,7 @@ export function PricingSection({ plans, annualBilling }: PricingSectionProps) {
           Simple pricing
         </h2>
         <p className="text-muted-foreground mt-2 text-center text-sm">
-          Every new account starts with a free Pro trial — no card required.
+          Every new account starts with a free trial — no card required.
         </p>
 
         {annualBilling && (

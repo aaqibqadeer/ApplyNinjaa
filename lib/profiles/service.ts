@@ -15,6 +15,7 @@ import {
   db,
   employmentTypeSchema,
   profileContactSchema,
+  profileCustomFieldSchema,
   profileEducationSchema,
   profileExperienceSchema,
   profileLinksSchema,
@@ -25,6 +26,7 @@ import {
   type ProfileEeo,
   type UpdateProfile,
 } from "@/lib/db";
+import { enforceProfileLimit } from "@/lib/usage/enforce";
 
 class ProfileError extends Error {
   readonly status: number;
@@ -101,6 +103,8 @@ export const profileInputSchema = z.object({
   experience: z.array(profileExperienceSchema).max(30).optional(),
   education: z.array(profileEducationSchema).max(15).optional(),
   projects: z.array(profileProjectSchema).max(20).optional(),
+  customFields: z.array(profileCustomFieldSchema).max(50).optional(),
+  knowledgeBase: z.string().max(10000).optional(),
   links: profileLinksSchema.optional(),
   workAuthorization: workAuthorizationSchema.nullable().optional(),
   workArrangement: workArrangementSchema.nullable().optional(),
@@ -155,6 +159,64 @@ export async function getProfile(
   return toOwned(await requireOwned(session, id));
 }
 
+/**
+ * The whitelisted payload the extension's offline Quick Fill matches against.
+ *
+ * **This ships decrypted EEO answers to the popup** — a deliberate, explicit
+ * product decision by the owner, and the ONE place the "EEO never leaves the
+ * server" rule is relaxed. (`listProfileSummaries` still withholds them; the
+ * picker has no reason to know.) The justification is that EEO self-ID
+ * questions are exactly the repetitive ones users want filled without
+ * spending an AI action. Consequences to keep in mind before copying this
+ * pattern: the values sit in popup memory for the life of the popup, and any
+ * future extension code can read them.
+ *
+ * Everything here is a whitelist, never a spread of the profile — new profile
+ * fields must be added deliberately rather than leaking by default.
+ */
+export interface ProfileFillData {
+  id: string;
+  name: string;
+  contact: Profile["contact"];
+  links: Profile["links"];
+  workAuthorization: string | null;
+  workArrangement: string | null;
+  employmentTypes: string[];
+  salaryExpectation: string | null;
+  customFields: Profile["customFields"];
+  /** Most recent role/school only — forms ask for "current", not a history. */
+  currentTitle: string | null;
+  currentCompany: string | null;
+  latestSchool: string | null;
+  latestDegree: string | null;
+  eeo: DecryptedEeo | null;
+}
+
+export async function getProfileFillData(
+  session: Session,
+  id: string,
+): Promise<ProfileFillData> {
+  const profile = await requireOwned(session, id);
+  const latestRole = profile.experience.find((e) => e.current) ?? profile.experience[0];
+  const latestSchool = profile.education[0];
+  return {
+    id: profile.id,
+    name: profile.name,
+    contact: profile.contact,
+    links: profile.links,
+    workAuthorization: profile.workAuthorization ?? null,
+    workArrangement: profile.workArrangement ?? null,
+    employmentTypes: profile.employmentTypes,
+    salaryExpectation: profile.salaryExpectation ?? null,
+    customFields: profile.customFields,
+    currentTitle: latestRole?.title ?? null,
+    currentCompany: latestRole?.company ?? null,
+    latestSchool: latestSchool?.school ?? null,
+    latestDegree: latestSchool?.degree ?? null,
+    eeo: decryptEeo(profile.userId, profile.eeo),
+  };
+}
+
 export async function createProfile(
   session: Session,
   input: ProfileInput,
@@ -163,6 +225,7 @@ export async function createProfile(
     throw new ProfileError("No active organization", 400);
   }
   const existing = await db.listProfilesForUser(session.user.id);
+  await enforceProfileLimit(session, existing.length);
   if (existing.some((p) => p.name === input.name)) {
     throw new ProfileError(
       `You already have a profile named "${input.name}"`,
@@ -179,6 +242,8 @@ export async function createProfile(
     experience: input.experience ?? [],
     education: input.education ?? [],
     projects: input.projects ?? [],
+    customFields: input.customFields ?? [],
+    knowledgeBase: input.knowledgeBase ?? "",
     links: input.links ?? {},
     workAuthorization: input.workAuthorization ?? null,
     workArrangement: input.workArrangement ?? null,
@@ -219,6 +284,8 @@ export async function updateProfile(
     experience: input.experience,
     education: input.education,
     projects: input.projects,
+    customFields: input.customFields,
+    knowledgeBase: input.knowledgeBase,
     links: input.links,
     workAuthorization: input.workAuthorization,
     workArrangement: input.workArrangement,

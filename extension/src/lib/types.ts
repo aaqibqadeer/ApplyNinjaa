@@ -39,6 +39,48 @@ export interface MapFieldsResponse {
   usage: Usage;
 }
 
+/** GET /api/usage — costs no AI action. */
+export interface UsageResponse {
+  ok: true;
+  used: number;
+  cap: number;
+  planSlug: string;
+  planName: string;
+  source: "paid" | "trial" | "free";
+}
+
+/** GET /api/profiles/[id]/fill-data — the offline Quick Fill source. */
+export interface ProfileFillData {
+  id: string;
+  name: string;
+  contact: Record<string, string | null | undefined>;
+  links: Record<string, string | null | undefined>;
+  workAuthorization: string | null;
+  workArrangement: string | null;
+  employmentTypes: string[];
+  salaryExpectation: string | null;
+  customFields: Array<{ label: string; value: string }>;
+  currentTitle: string | null;
+  currentCompany: string | null;
+  latestSchool: string | null;
+  latestDegree: string | null;
+  eeo: {
+    gender: string | null;
+    raceEthnicity: string | null;
+    veteranStatus: string | null;
+    disabilityStatus: string | null;
+  } | null;
+}
+
+/** A row from GET /api/applications, trimmed to what Re-track needs. */
+export interface TrackedApplication {
+  id: string;
+  company: string;
+  roleTitle: string;
+  url: string | null;
+  appliedAt: string;
+}
+
 export interface ProfileSummary {
   id: string;
   name: string;
@@ -47,7 +89,9 @@ export interface ProfileSummary {
 
 export interface ApiError {
   error: string;
-  code?: "AI_CAP_REACHED" | "RATE_LIMITED";
+  code?: "AI_CAP_REACHED" | "RATE_LIMITED" | "FEATURE_LOCKED";
+  feature?: string;
+  requiredPlan?: string | null;
   upgradeUrl?: string;
   used?: number;
   cap?: number;

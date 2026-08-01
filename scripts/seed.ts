@@ -143,7 +143,13 @@ async function main(): Promise<void> {
       priceMonthly: 0,
       priceAnnual: null,
       annualDiscountPercent: null,
-      limits: { aiCallsPerMonth: 5 },
+      limits: {
+        aiCallsPerMonth: 5,
+        profileLimit: 1,
+        customFilters: false,
+        gmailScan: false,
+        dataExport: false,
+      },
       isActive: true,
       sortOrder: 0,
     },
@@ -154,7 +160,13 @@ async function main(): Promise<void> {
       priceMonthly: 399,
       priceAnnual: 3830,
       annualDiscountPercent: 20,
-      limits: { aiCallsPerMonth: 50 },
+      limits: {
+        aiCallsPerMonth: 50,
+        profileLimit: 1,
+        customFilters: true,
+        gmailScan: false,
+        dataExport: false,
+      },
       isActive: true,
       sortOrder: 1,
     },
@@ -165,7 +177,13 @@ async function main(): Promise<void> {
       priceMonthly: 699,
       priceAnnual: 6710,
       annualDiscountPercent: 20,
-      limits: { aiCallsPerMonth: 150 },
+      limits: {
+        aiCallsPerMonth: 150,
+        profileLimit: 3,
+        customFilters: true,
+        gmailScan: false,
+        dataExport: true,
+      },
       isActive: true,
       sortOrder: 2,
     },
@@ -176,14 +194,42 @@ async function main(): Promise<void> {
       priceMonthly: 999,
       priceAnnual: 9590,
       annualDiscountPercent: 20,
-      limits: { aiCallsPerMonth: 300 },
+      limits: {
+        // -1 = unlimited (see getProfileLimit in lib/usage/enforce.ts).
+        aiCallsPerMonth: 300,
+        profileLimit: -1,
+        customFilters: true,
+        gmailScan: true,
+        dataExport: true,
+      },
       isActive: true,
       sortOrder: 3,
     },
   ];
   for (const planSeed of planSeeds) {
     const existing = await db.getPlanBySlug(planSeed.slug);
-    if (!existing) await db.createPlan(planSeed);
+    if (!existing) {
+      await db.createPlan(planSeed);
+      continue;
+    }
+    // Backfill only limit keys the plan doesn't have yet, so a deployment
+    // seeded before an entitlement existed picks it up on the next `npm run
+    // seed`. Everything a super admin owns — price, name, description, active,
+    // sort order, Stripe ids, and any limit they've already tuned — is left
+    // exactly as-is, which keeps this safe to re-run any number of times.
+    const seededLimits = planSeed.limits ?? {};
+    const currentLimits = existing.limits ?? {};
+    const missing = Object.entries(seededLimits).filter(
+      ([key]) => !(key in currentLimits),
+    );
+    if (missing.length > 0) {
+      await db.updatePlan(existing.id, {
+        limits: { ...currentLimits, ...Object.fromEntries(missing) },
+      });
+      console.log(
+        `  ↳ ${planSeed.slug}: added limits ${missing.map(([k]) => k).join(", ")}`,
+      );
+    }
   }
 
   // Admin-default "Valid Job" filters (product spec §4). Idempotent by label.
@@ -191,31 +237,32 @@ async function main(): Promise<void> {
     {
       label: "Visa Sponsorship Available",
       description:
-        "Does the job offer visa sponsorship (H1-B or similar) or explicitly say it cannot sponsor?",
+        "Yes when the posting says it sponsors visas (H1-B or similar). No when it says it cannot sponsor. Neutral when sponsorship is never mentioned — most postings say nothing, and silence is not a refusal.",
     },
     {
       label: "US Citizenship Required",
       description:
-        "Does the posting require US citizenship (answer Yes when citizenship is required)?",
+        "Yes when the posting requires US citizenship. No when it explicitly says citizenship is not required. Neutral when it isn't mentioned. (Yes here is a restriction, not a positive.)",
     },
     {
       label: "Security Clearance Required",
       description:
-        "Does the posting require an active or obtainable security clearance?",
+        "Yes when the posting requires an active or obtainable clearance. No when it explicitly says none is needed. Neutral when it isn't mentioned. (Yes here is a restriction, not a positive.)",
     },
     {
       label: "Work Authorization Match",
       description:
-        "Is the candidate's stated work authorization compatible with the posting's requirements?",
+        "Compares the posting against the candidate's stated work authorization. Yes when they're compatible, No when the posting's requirement rules the candidate out, Neutral when the posting states no requirement.",
     },
     {
       label: "Remote/Hybrid/Onsite Match",
       description:
-        "Does the job's work arrangement match the candidate's preferred arrangement?",
+        "Compares the posting against the candidate's preferred arrangement. Yes when they match, No when the posting conflicts (e.g. fully onsite for a remote-only candidate), Neutral when the posting doesn't state where the work happens.",
     },
     {
       label: "Salary Range Disclosed",
-      description: "Does the posting disclose a salary or compensation range?",
+      description:
+        "Yes when the posting states a salary or compensation range. No is not really applicable here — a posting that omits pay is Neutral, not No.",
     },
   ];
   const existingAdminFilters = await db.listAdminJobFilters();
@@ -233,7 +280,7 @@ async function main(): Promise<void> {
   }
 
   // Ensure the platform settings singleton exists. `trialDays` (default 7) is
-  // the length of the local no-card Pro trial started at email verification;
+  // the length of the local no-card trial started at email verification;
   // the legacy Stripe-checkout trial is disabled in lib/payments/checkout.ts.
   const settings = await db.getAppSettings();
 

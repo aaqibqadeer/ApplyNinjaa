@@ -1,0 +1,67 @@
+name: Extension release
+
+# Chrome Web Store review takes hours to days, so extension releases are cut
+# independently of web deploys — tag `ext-v1.2.3` when you want one. This is
+# also why the backend must stay compatible with the PUBLISHED extension, not
+# just the one in this repo.
+on:
+  push:
+    tags: ["ext-v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check the tag matches the manifest version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#ext-v}"
+          MANIFEST_VERSION=$(node -p "require('./extension/manifest.template.json').version")
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "Tag is $TAG_VERSION but manifest.template.json says $MANIFEST_VERSION."
+            echo "The Web Store rejects a re-used version, so these must agree."
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build:extension
+        env:
+          VITE_API_ORIGIN: ${{ vars.PRODUCTION_APP_URL }}
+
+      - name: Zip
+        run: cd extension/dist && zip -r ../../extension.zip .
+
+      # The FIRST submission must be done by hand in the Developer Dashboard
+      # (one-time $5 registration + initial review). This job only handles
+      # updates to an extension that already exists.
+      - name: Upload and publish
+        run: |
+          npx chrome-webstore-upload-cli@3 upload \
+            --source extension.zip \
+            --extension-id "$EXTENSION_ID" \
+            --client-id "$CLIENT_ID" \
+            --client-secret "$CLIENT_SECRET" \
+            --refresh-token "$REFRESH_TOKEN"
+          npx chrome-webstore-upload-cli@3 publish \
+            --extension-id "$EXTENSION_ID" \
+            --client-id "$CLIENT_ID" \
+            --client-secret "$CLIENT_SECRET" \
+            --refresh-token "$REFRESH_TOKEN"
+        env:
+          EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension-${{ github.ref_name }}
+          path: extension.zip

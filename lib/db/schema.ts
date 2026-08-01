@@ -72,7 +72,7 @@ export const userSchema = z.object({
   status: userStatusSchema.default(USER_STATUSES.active),
   /** Set when the user verifies their email; gates the one-per-email trial. */
   emailVerifiedAt: z.coerce.date().nullable().optional(),
-  /** Set once when the Pro trial is started — one trial per verified email. */
+  /** Set once when the free trial is started — one trial per verified email. */
   trialUsedAt: z.coerce.date().nullable().optional(),
   /** When the 30-day soft-delete window started (status=pending_deletion). */
   deletedAt: z.coerce.date().nullable().optional(),
@@ -292,7 +292,7 @@ export type UpdatePlan = z.infer<typeof updatePlanSchema>;
 
 /**
  * Platform-wide, admin-editable settings — a single row. `trialDays` is the
- * length of ApplyNinjaa's no-card Pro trial (started at email verification —
+ * length of ApplyNinjaa's no-card free trial (started at email verification —
  * lib/payments/trials.ts); 0 disables trials. No `organization_id`: like
  * `plans`, this is a platform concern, not per-tenant.
  */
@@ -472,6 +472,17 @@ export const profileProjectSchema = z.object({
 });
 export type ProfileProject = z.infer<typeof profileProjectSchema>;
 
+/**
+ * A user-authored question/answer pair, e.g. "Why do you want to work here?"
+ * → their standard answer. Quick Fill matches these by label BEFORE any
+ * heuristic, because a hand-written answer always beats a guess.
+ */
+export const profileCustomFieldSchema = z.object({
+  label: z.string(),
+  value: z.string(),
+});
+export type ProfileCustomField = z.infer<typeof profileCustomFieldSchema>;
+
 export const profileLinksSchema = z.object({
   linkedin: z.string().nullable().optional(),
   github: z.string().nullable().optional(),
@@ -508,6 +519,9 @@ export const profileSchema = z.object({
   experience: z.array(profileExperienceSchema).default([]),
   education: z.array(profileEducationSchema).default([]),
   projects: z.array(profileProjectSchema).default([]),
+  customFields: z.array(profileCustomFieldSchema).default([]),
+  /** Free-text background the AI may draw on for open-ended questions. */
+  knowledgeBase: z.string().default(""),
   links: profileLinksSchema.default({}),
   workAuthorization: workAuthorizationSchema.nullable().optional(),
   workArrangement: workArrangementSchema.nullable().optional(),
@@ -567,6 +581,20 @@ export type ApplicationFilterResult = z.infer<
   typeof applicationFilterResultSchema
 >;
 
+/**
+ * One extra page attached to an already-tracked application — the same job
+ * seen on a second site (LinkedIn listing → company careers page), or the
+ * confirmation page after submitting. The FIRST link tracked stays the
+ * primary `url`/`domain` so existing rows and the dashboard keep working.
+ */
+export const applicationLinkSchema = z.object({
+  url: z.string(),
+  domain: z.string().nullable().optional(),
+  platform: z.string().nullable().optional(),
+  addedAt: z.coerce.date(),
+});
+export type ApplicationLink = z.infer<typeof applicationLinkSchema>;
+
 export const applicationSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
@@ -576,6 +604,9 @@ export const applicationSchema = z.object({
   roleTitle: z.string().min(1),
   url: z.string().nullable().optional(),
   domain: z.string().nullable().optional(),
+  /** Derived from the hostname, e.g. "LinkedIn" | "Greenhouse" | "Company site". */
+  platform: z.string().nullable().optional(),
+  additionalLinks: z.array(applicationLinkSchema).default([]),
   status: applicationStatusSchema.default("Applied"),
   /** 0-100. AI-generated but user-editable — the user's value wins. */
   fitScore: z.number().min(0).max(100).nullable().optional(),

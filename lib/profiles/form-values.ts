@@ -34,6 +34,11 @@ export interface ProjectValue {
   technologies: string[];
 }
 
+export interface CustomFieldValue {
+  label: string;
+  value: string;
+}
+
 export interface ProfileFormValues {
   name: string;
   contact: Record<string, string | null | undefined>;
@@ -42,6 +47,8 @@ export interface ProfileFormValues {
   experience: ExperienceValue[];
   education: EducationValue[];
   projects: ProjectValue[];
+  customFields: CustomFieldValue[];
+  knowledgeBase: string;
   links: Record<string, string | null | undefined>;
   workAuthorization: string | null;
   workArrangement: string | null;
@@ -64,6 +71,8 @@ export const emptyProfileValues: ProfileFormValues = {
   experience: [],
   education: [],
   projects: [],
+  customFields: [],
+  knowledgeBase: "",
   links: {},
   workAuthorization: null,
   workArrangement: null,

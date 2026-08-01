@@ -59,4 +59,34 @@ Dark mode is **class-based**. `app/globals.css` declares
 | Radii   | `radii.base` | Base radius; `sm/md/lg/xl` derived in `globals.css`.                                                                                                                                        |
 | Shadows | `shadows.*`  | `sm`, `md`, `lg`.                                                                                                                                                                           |
 
-This fork ships the ApplyNinjaa navy/blue palette (professional, LinkedIn-adjacent); both light and dark sets are chromatic blues rather than neutral gray.
+This fork ships the ApplyNinjaa violet palette (primary hue 300); both light and dark sets are chromatic violets rather than neutral gray. Values are chosen to stay inside the sRGB gamut — oklch lets you write colours that don't exist on screen, and browsers silently clip them, so check a new value before shipping it (`oklch(0.70 0.19 300)` and `oklch(0.95 0.03 300)` both clip; `0.70 0.17` and `0.94 0.03` do not).
+
+
+## Brand assets
+
+The palette above is code; the logo is a set of files. Next 15 picks the
+`app/` ones up by **file convention** — no `metadata.icons` entry, no
+`<link>` tag, no code of any kind. Drop the file in and it works.
+
+| Path | Size | Purpose |
+| --- | --- | --- |
+| `app/icon.png` | 512×512 | favicon / tab icon |
+| `app/apple-icon.png` | 180×180 | iOS home screen |
+| `app/opengraph-image.png` | 1200×630 | link previews (`twitter.card` is already `summary_large_image`) |
+| `public/logo-full.png` | ~1200 wide | wordmark lockup, if a text logo is wanted beside the mark |
+| `extension/icons/icon-{16,32,48,128}.png` | as named | Chrome toolbar — see `extension/icons/README.md` |
+
+Two things to know before adding them:
+
+1. **Delete `app/favicon.ico` when `app/icon.png` lands.** `favicon.ico` takes
+   precedence in Next's convention order, so leaving both means the new icon
+   silently never appears.
+2. `components/shared/BrandMark.tsx` still draws the shuriken as inline SVG.
+   Swapping it for `next/image` pointed at the real mark updates `SiteHeader`,
+   `AppHeader` and `SiteFooter` in one edit — it is deliberately the only
+   place the mark is drawn.
+
+Email templates (`lib/email/templates.ts`) and the extension's injected toast
+(`extension/src/background.ts`) cannot read CSS variables, so each carries a
+hardcoded hex mirroring `--primary`. Update those two by hand when the
+primary changes; there is no way around it.

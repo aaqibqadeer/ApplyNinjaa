@@ -37,6 +37,7 @@ import {
   type AdminAction,
   type Application,
   type ApplicationFilterResult,
+  type ApplicationLink,
   type ApplicationStatus,
   type AppSettings,
   type GmailScan,
@@ -66,6 +67,7 @@ import {
   type ProfileEeo,
   type ProfileExperience,
   type ProfileLinks,
+  type ProfileCustomField,
   type ProfileProject,
   type Subscription,
   type UpdateApplication,
@@ -181,6 +183,8 @@ interface ProfileDoc {
   experience: ProfileExperience[];
   education: ProfileEducation[];
   projects: ProfileProject[];
+  custom_fields: ProfileCustomField[];
+  knowledge_base: string;
   links: ProfileLinks;
   work_authorization: string | null;
   work_arrangement: string | null;
@@ -213,6 +217,8 @@ interface ApplicationDoc {
   role_title: string;
   url: string | null;
   domain: string | null;
+  platform: string | null;
+  additional_links: ApplicationLink[];
   status: string;
   fit_score: number | null;
   fit_reasoning: string | null;
@@ -448,6 +454,8 @@ const profileSchema = new Schema<ProfileDoc>(
     experience: { type: Schema.Types.Mixed, default: [] },
     education: { type: Schema.Types.Mixed, default: [] },
     projects: { type: Schema.Types.Mixed, default: [] },
+    custom_fields: { type: Schema.Types.Mixed, default: [] },
+    knowledge_base: { type: String, default: "" },
     links: { type: Schema.Types.Mixed, default: {} },
     work_authorization: { type: String, default: null },
     work_arrangement: { type: String, default: null },
@@ -502,6 +510,8 @@ const applicationSchema = new Schema<ApplicationDoc>(
     role_title: { type: String, required: true },
     url: { type: String, default: null },
     domain: { type: String, default: null },
+    platform: { type: String, default: null },
+    additional_links: { type: Schema.Types.Mixed, default: [] },
     status: { type: String, required: true, default: "Applied" },
     fit_score: { type: Number, default: null },
     fit_reasoning: { type: String, default: null },
@@ -771,6 +781,8 @@ function toProfile(doc: ProfileDoc): Profile {
     experience: doc.experience ?? [],
     education: doc.education ?? [],
     projects: doc.projects ?? [],
+    customFields: doc.custom_fields ?? [],
+    knowledgeBase: doc.knowledge_base ?? "",
     links: doc.links ?? {},
     workAuthorization: (doc.work_authorization ??
       null) as Profile["workAuthorization"],
@@ -809,6 +821,8 @@ function toApplication(doc: ApplicationDoc): Application {
     roleTitle: doc.role_title,
     url: doc.url ?? null,
     domain: doc.domain ?? null,
+    platform: doc.platform ?? null,
+    additionalLinks: doc.additional_links ?? [],
     status: doc.status as Application["status"],
     fitScore: doc.fit_score ?? null,
     fitReasoning: doc.fit_reasoning ?? null,
@@ -1424,6 +1438,8 @@ export class MongoAdapter implements DatabaseAdapter {
       experience: parsed.experience,
       education: parsed.education,
       projects: parsed.projects,
+      custom_fields: parsed.customFields,
+      knowledge_base: parsed.knowledgeBase,
       links: parsed.links,
       work_authorization: parsed.workAuthorization ?? null,
       work_arrangement: parsed.workArrangement ?? null,
@@ -1460,6 +1476,10 @@ export class MongoAdapter implements DatabaseAdapter {
     if (patch.experience !== undefined) update.experience = patch.experience;
     if (patch.education !== undefined) update.education = patch.education;
     if (patch.projects !== undefined) update.projects = patch.projects;
+    if (patch.customFields !== undefined)
+      update.custom_fields = patch.customFields;
+    if (patch.knowledgeBase !== undefined)
+      update.knowledge_base = patch.knowledgeBase;
     if (patch.links !== undefined) update.links = patch.links;
     if (patch.workAuthorization !== undefined)
       update.work_authorization = patch.workAuthorization ?? null;
@@ -1543,6 +1563,8 @@ export class MongoAdapter implements DatabaseAdapter {
       role_title: parsed.roleTitle,
       url: parsed.url ?? null,
       domain: parsed.domain ?? null,
+      platform: parsed.platform ?? null,
+      additional_links: parsed.additionalLinks,
       status: parsed.status,
       fit_score: parsed.fitScore ?? null,
       fit_reasoning: parsed.fitReasoning ?? null,
@@ -1584,6 +1606,9 @@ export class MongoAdapter implements DatabaseAdapter {
     if (patch.roleTitle !== undefined) update.role_title = patch.roleTitle;
     if (patch.url !== undefined) update.url = patch.url ?? null;
     if (patch.domain !== undefined) update.domain = patch.domain ?? null;
+    if (patch.platform !== undefined) update.platform = patch.platform ?? null;
+    if (patch.additionalLinks !== undefined)
+      update.additional_links = patch.additionalLinks;
     if (patch.status !== undefined) update.status = patch.status;
     if (patch.fitScore !== undefined) update.fit_score = patch.fitScore ?? null;
     if (patch.fitReasoning !== undefined)

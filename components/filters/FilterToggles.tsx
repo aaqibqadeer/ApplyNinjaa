@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -15,12 +16,25 @@ interface FilterRow {
   enabled: boolean;
 }
 
+export interface FilterTogglesProps {
+  /**
+   * Whether the viewer's plan includes custom filters. The add-row is hidden
+   * when false; `lib/filters/service.ts` is what actually enforces it.
+   */
+  canAddCustom?: boolean;
+  /** Plan name that unlocks custom filters, for the upsell line. */
+  requiredPlan?: string | null;
+}
+
 /**
  * The user's Valid Job filter list: admin defaults + own custom filters as
  * toggles, plus add/remove of custom ones. Used by onboarding step 4 and the
  * filter settings page.
  */
-export function FilterToggles() {
+export function FilterToggles({
+  canAddCustom = true,
+  requiredPlan,
+}: FilterTogglesProps = {}) {
   const [filters, setFilters] = useState<FilterRow[] | null>(null);
   const [newLabel, setNewLabel] = useState("");
   const [adding, setAdding] = useState(false);
@@ -69,7 +83,10 @@ export function FilterToggles() {
         toast.error(data.error ?? "Could not add the filter");
         return;
       }
-      setFilters((rows) => [...(rows ?? []), { ...data.filter!, enabled: true }]);
+      setFilters((rows) => [
+        ...(rows ?? []),
+        { ...data.filter!, enabled: true },
+      ]);
       setNewLabel("");
     } finally {
       setAdding(false);
@@ -126,28 +143,39 @@ export function FilterToggles() {
         ))}
       </ul>
 
-      <div className="flex gap-2">
-        <Input
-          placeholder="Add your own filter, e.g. “401k match mentioned”"
-          value={newLabel}
-          maxLength={120}
-          onChange={(e) => setNewLabel(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              void addCustom();
-            }
-          }}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          disabled={adding || !newLabel.trim()}
-          onClick={() => void addCustom()}
-        >
-          Add
-        </Button>
-      </div>
+      {!canAddCustom ? (
+        <p className="text-muted-foreground text-sm">
+          Want to screen for your own deal-breakers?{" "}
+          <Link href="/settings/billing" className="text-primary underline">
+            Upgrade
+          </Link>{" "}
+          to add custom filters
+          {requiredPlan ? ` (${requiredPlan} and above)` : ""}.
+        </p>
+      ) : (
+        <div className="flex gap-2">
+          <Input
+            placeholder="Add your own filter, e.g. “401k match mentioned”"
+            value={newLabel}
+            maxLength={120}
+            onChange={(e) => setNewLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void addCustom();
+              }
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={adding || !newLabel.trim()}
+            onClick={() => void addCustom()}
+          >
+            Add
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
