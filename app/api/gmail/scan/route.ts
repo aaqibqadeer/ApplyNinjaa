@@ -23,7 +23,7 @@ const schema = z
  * (scans are capped at 50 messages).
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!features.gmail || !isAnyAiEnabled) {
+  if (!features.jobApplications || !features.gmail || !isAnyAiEnabled) {
     return NextResponse.json({ error: "Not available" }, { status: 404 });
   }
   try {

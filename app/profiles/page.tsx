@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { ProfileList } from "@/components/profiles/ProfileList";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { UpgradeNotice } from "@/components/shared/UpgradeNotice";
 import { Button } from "@/components/ui/button";
+import { features } from "@/config/features";
 import { requireAuth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import {
@@ -19,6 +21,7 @@ export const metadata: Metadata = { title: "Profiles" };
 export const dynamic = "force-dynamic";
 
 export default async function ProfilesPage() {
+  if (!features.jobApplications) notFound();
   const session = await requireAuth();
   const profiles = await db.listProfilesForUser(session.user.id);
 

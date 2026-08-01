@@ -29,10 +29,23 @@ export async function AppHeader({ session }: AppHeaderProps) {
   const isSuperAdmin = session.user.isSuperAdmin;
 
   const links: AppNavLink[] = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/profiles", label: "Profiles" },
-    { href: "/settings/filters", label: "Filters" },
-    ...(features.gmail ? [{ href: "/settings/gmail", label: "Gmail" }] : []),
+    ...(features.jobApplications
+      ? [
+          { href: "/dashboard", label: "Dashboard" },
+          { href: "/profiles", label: "Profiles" },
+          { href: "/settings/filters", label: "Filters" },
+        ]
+      : []),
+    // Gmail is a job-application surface, so it needs both flags on.
+    ...(features.gmail && features.jobApplications
+      ? [{ href: "/settings/gmail", label: "Gmail" }]
+      : []),
+    ...(features.scraper.enabled
+      ? [
+          { href: "/leads", label: "Leads" },
+          { href: "/leads/campaigns", label: "Campaigns" },
+        ]
+      : []),
     ...(features.payments.enabled
       ? [{ href: "/settings/billing", label: "Billing" }]
       : []),

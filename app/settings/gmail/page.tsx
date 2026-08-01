@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Gmail scan" };
 export const dynamic = "force-dynamic";
 
 export default async function GmailSettingsPage() {
-  if (!features.gmail) notFound();
+  if (!features.jobApplications || !features.gmail) notFound();
   const session = await requireAuth();
   const unlocked = await hasAccess(session, PLAN_FEATURES.gmailScan);
   const requiredPlan = unlocked

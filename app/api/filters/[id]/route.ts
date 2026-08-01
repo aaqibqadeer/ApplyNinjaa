@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { features } from "@/config/features";
 import { authErrorResponse, authorizeApi } from "@/lib/auth/roles";
 import {
   deleteUserFilter,
@@ -21,6 +22,9 @@ export async function PATCH(
   request: Request,
   { params }: Params,
 ): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const { id } = await params;
@@ -48,6 +52,9 @@ export async function DELETE(
   request: Request,
   { params }: Params,
 ): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const { id } = await params;

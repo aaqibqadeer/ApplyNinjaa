@@ -51,6 +51,11 @@ flag-conditional rule, no silent default).
 | `gmail`                  | `NEXT_PUBLIC_FEATURE_GMAIL`                   | Gmail integration — separate opt-in read-only OAuth + manual inbox scans proposing application-status updates                                    | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (required even if Google login is off)                                                            |
 | `aiProviders`            | `NEXT_PUBLIC_FEATURE_AI_PROVIDERS`            | Enabled AI providers (comma-separated: `anthropic`, `openai`, `deepseek`)                                                                        | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `DEEPSEEK_API_KEY` per listed provider                                                              |
 | `multiTenant`            | `NEXT_PUBLIC_FEATURE_MULTI_TENANT`            | Org switching/invites UI. Off = one silent default org per user. Schema is always multi-tenant.                                                  | _(none required; email invites reuse `RESEND_API_KEY` if set, else log to console in dev)_                                                   |
+| `jobApplications`        | `NEXT_PUBLIC_FEATURE_JOB_APPLICATIONS`        | ApplyNinjaa's job-application surface: profiles, onboarding, applications tracker, job filters, Gmail scans, and the resume/field-map/analyze-job AI tasks. Off = those pages 404, their APIs return 404, and their nav hides. | _(none)_                                                                                                                                     |
+| `scraper.enabled`        | `NEXT_PUBLIC_FEATURE_SCRAPER`                 | ScrapperNinja's lead-scraping surface (Leads / Campaigns nav). Master switch for the scraper sub-flags below.                                     | _(none)_                                                                                                                                     |
+| `scraper.enrichment`     | `NEXT_PUBLIC_FEATURE_SCRAPER_ENRICHMENT`      | Enrichment pass over scraped leads (Phase 3).                                                                                                    | _(none)_                                                                                                                                     |
+| `scraper.offerLines`     | `NEXT_PUBLIC_FEATURE_SCRAPER_OFFER_LINES`     | Per-lead offer-line generation (Phase 3).                                                                                                        | _(none)_                                                                                                                                     |
+| `scraper.genericExtractor` | `NEXT_PUBLIC_FEATURE_SCRAPER_GENERIC_EXTRACTOR` | Generic (non-site-specific) extractor (Phase 2).                                                                                             | _(none)_                                                                                                                                     |
 
 Notes:
 
@@ -100,6 +105,16 @@ Notes:
   there's no `env.schema.ts` rule. Phase 9 also added SEO plumbing that is NOT
   flag-gated: expanded Metadata API in `app/layout.tsx`, `app/sitemap.ts`, and
   `app/robots.ts` (all reuse `NEXT_PUBLIC_APP_URL`).
+- **ScrapperNinja Phase 1 added the product-surface flags** — `jobApplications`
+  (flat boolean) and the nested `scraper` group (`enabled`, `enrichment`,
+  `offerLines`, `genericExtractor`). `jobApplications` gates ApplyNinjaa's
+  existing surface: the `profiles`/`onboarding`/`settings/filters`/`settings/gmail`
+  pages `notFound()` when off, `/dashboard` redirects to `/leads` (or `notFound()`
+  when `scraper.enabled` is also off), and every route under
+  `api/{profiles,applications,filters,gmail}` plus the job-app AI routes
+  (`parse-resume`, `analyze-job`, `map-fields`) return 404 when off. `scraper.*`
+  only wires nav (Leads / Campaigns) so far — the leads UI/schema land in later
+  phases. None of these flags unlock a secret, so there's no `env.schema.ts` rule.
 
 ## Adding a flag (checklist, per CLAUDE.md §7)
 

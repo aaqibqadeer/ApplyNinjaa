@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { ProfileEditor } from "@/components/profiles/ProfileEditor";
 import { AppHeader } from "@/components/shared/AppHeader";
+import { features } from "@/config/features";
 import { requireAuth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { getEffectivePlan } from "@/lib/payments/access";
@@ -14,6 +15,7 @@ export const metadata: Metadata = { title: "New profile" };
 export const dynamic = "force-dynamic";
 
 export default async function NewProfilePage() {
+  if (!features.jobApplications) notFound();
   const session = await requireAuth();
 
   // Don't let someone fill in a whole profile only to be refused on save —

@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 
 /** Connection state + past scans for the Gmail settings page. */
 export async function GET(): Promise<NextResponse> {
-  if (!features.gmail) {
+  if (!features.jobApplications || !features.gmail) {
     return NextResponse.json({ error: "Not available" }, { status: 404 });
   }
   try {

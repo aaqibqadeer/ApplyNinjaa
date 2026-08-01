@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { FilterToggles } from "@/components/filters/FilterToggles";
 import { AppHeader } from "@/components/shared/AppHeader";
+import { features } from "@/config/features";
 import { requireAuth } from "@/lib/auth/server";
 import {
   hasAccess,
@@ -14,6 +16,7 @@ export const metadata: Metadata = { title: "Job filters" };
 export const dynamic = "force-dynamic";
 
 export default async function FilterSettingsPage() {
+  if (!features.jobApplications) notFound();
   const session = await requireAuth();
   const canAddCustom = await hasAccess(session, PLAN_FEATURES.customFilters);
   const requiredPlan = canAddCustom

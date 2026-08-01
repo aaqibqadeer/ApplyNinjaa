@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { features } from "@/config/features";
 import { authErrorResponse, authorizeApi } from "@/lib/auth/roles";
 import {
   createUserFilter,
@@ -9,6 +10,9 @@ import {
 
 /** The caller's visible filters (active admin defaults + own), with toggles. */
 export async function GET(request: Request): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const filters = await listFiltersForUser(session);
@@ -20,6 +24,9 @@ export async function GET(request: Request): Promise<NextResponse> {
 
 /** Add a custom (per-user) filter. */
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const parsed = userFilterInputSchema.safeParse(

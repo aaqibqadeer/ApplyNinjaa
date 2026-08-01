@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { AppHeader } from "@/components/shared/AppHeader";
+import { features } from "@/config/features";
 import { requireAuth } from "@/lib/auth/server";
 
 export const metadata: Metadata = { title: "Get started" };
@@ -10,6 +12,7 @@ export const metadata: Metadata = { title: "Get started" };
 export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
+  if (!features.jobApplications) notFound();
   const session = await requireAuth();
   return (
     <>

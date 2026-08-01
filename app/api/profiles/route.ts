@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { features } from "@/config/features";
 import { authErrorResponse, authorizeApi } from "@/lib/auth/roles";
 import {
   createProfile,
@@ -13,6 +14,9 @@ import {
  * `GET /api/profiles/[id]` for the editor.
  */
 export async function GET(request: Request): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const profiles = await listProfileSummaries(session);
@@ -24,6 +28,9 @@ export async function GET(request: Request): Promise<NextResponse> {
 
 /** Create a profile (onboarding review step / dashboard "new profile"). */
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const parsed = profileInputSchema.safeParse(

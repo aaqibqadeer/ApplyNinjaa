@@ -18,7 +18,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  if (!features.gmail) {
+  if (!features.jobApplications || !features.gmail) {
     return NextResponse.json({ error: "Not available" }, { status: 404 });
   }
   try {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { features } from "@/config/features";
 import {
   applyBulkAction,
   bulkActionSchema,
@@ -8,6 +9,9 @@ import { authErrorResponse, authorizeApi } from "@/lib/auth/roles";
 
 /** Bulk actions from the dashboard table: delete / set-status. */
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const parsed = bulkActionSchema.safeParse(

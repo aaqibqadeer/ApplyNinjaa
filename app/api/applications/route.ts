@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { features } from "@/config/features";
 import {
   applicationInputSchema,
   listApplications,
@@ -9,6 +10,9 @@ import { authErrorResponse, authorizeApi } from "@/lib/auth/roles";
 
 /** The caller's tracked applications, newest first. */
 export async function GET(request: Request): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const applications = await listApplications(session);
@@ -20,6 +24,9 @@ export async function GET(request: Request): Promise<NextResponse> {
 
 /** Track a job (extension Track button / dashboard add). */
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const parsed = applicationInputSchema.safeParse(
