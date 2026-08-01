@@ -138,3 +138,17 @@ feature needs the same pattern.
 | `ApplicationsTable` | `components/dashboard/ApplicationsTable.tsx` | Fully inline-editable tracker table: sort, search + status filter, bulk mark-rejected/delete, CSV export.                   |
 | `OnboardingWizard`  | `components/onboarding/OnboardingWizard.tsx` | 5-step onboarding (welcome → resume parse → review → filters → done) with progress bar.                                     |
 | `VerifyEmailBanner` | `components/auth/VerifyEmailBanner.tsx`      | Resend-verification nudge for unverified accounts (verification starts the free trial).                                     |
+
+## `/components/leads` — ScrapperNinja feature components (Phase 1)
+
+Feature-scoped to the Lead Directory (`scraper` flag). All are `'use client'`
+(interactive tables/drawers/pickers). The shared table primitives they build on
+(`DataTable`, column visibility, pagination) live in `/components/shared`.
+
+| Component            | Location                                    | Purpose                                                                                                                                         |
+| -------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LeadsTable`         | `components/leads/LeadsTable.tsx`           | The Lead Directory: server-filtered/sorted/paginated table with column show/hide, saved-view load/save, inline status edits, and CSV export.    |
+| `LeadDetailDrawer`   | `components/leads/LeadDetailDrawer.tsx`     | Side drawer for one lead: full field view, inline edits, parse-issue review, and persist via PATCH `/api/leads/:id`.                             |
+| `CampaignPicker`     | `components/leads/CampaignPicker.tsx`       | Pick-or-quick-create campaign selector used when assigning leads.                                                                                |
+| `CampaignsManager`   | `components/leads/CampaignsManager.tsx`     | Campaigns list with inline create, archive/reactivate, and delete (full lifecycle; the picker owns quick-create only).                          |
+| `CustomFieldManager` | `components/leads/CustomFieldManager.tsx`   | Org-level custom-column CRUD (key/label/type/options) backing `leads.custom_fields`.                                                             |

@@ -5,6 +5,50 @@
 > Recent phases stay here; older entries live in
 > [`decisions-archive.md`](./decisions-archive.md). Keep this file small.
 
+## 2026-08-01 — ScrapperNinja Phase 1 (foundation) + the 20 locked decisions
+
+Phase 1 built the schema, Lead Directory (`/leads`), query/service/CSV layer,
+API routes, vitest suite, and demo seed. The 20 decisions locked in
+`docs/prompts/scrapperninja-execution-plan.md` (summarized — a future agent must
+not re-derive these):
+
+- **Products & scope.** Old product flag-gated **off** but code kept (1); leads
+  are **org-scoped** (team shares one directory) and lead↔campaign is
+  **many-to-many** (20); workflow **stops at export** — statuses are `new`/
+  `needs_review`/`ready`/`exported`/`junk`/`archived`, no CRM stages (17).
+- **Lead table full-power in Phase 1** (4): column show/hide + reorder,
+  per-column filters, sort, offset pagination, bulk actions, inline edit, CSV
+  export, **saved views**, and **user-defined custom columns**. Scale target
+  **≤100k leads/org** → offset pagination + Mongo indexes, **in-process** job
+  runner, no Redis (3).
+- **Two review surfaces** (16): parse issues inline in the main table (status
+  filter); duplicates get their own page. **Dedupe never auto-merges** —
+  everything goes to a review queue (8).
+- **Export is CSV only** (19), server-streamed, **visible columns × filtered
+  rows**; with formula-injection guarding in `lib/leads/csv.ts`.
+- **Capture (Phase 2)** has a **Fast / Deep** popup toggle (5) and uses
+  **server-pushed selector packs** — selectors live in the DB, the extension
+  fetches them per run (7). **Named adapters + a generic AI extractor** cover the
+  long tail (12); Phase 2 ships Google Maps deep + the generic extractor +
+  manual single-page capture, **not Yelp** (13). SoS registries (Tier C) are
+  deferred — **CSV import** covers them in Phase 1 (14); LinkedIn/IG/FB (Tier D)
+  stay **manual-only, `automationTier` enforced in code** (15).
+- **AI (Phase 3).** **DeepSeek for every AI task**, routing in one config file so
+  tasks can be re-pointed (18). DeepSeek parse-**rescue** fires on the backend at
+  sync time (6). **Score is AI-judged with stored reasoning**, not rule-based
+  (10). Enrichment = crawl + tech stack; **PageSpeed optional** behind
+  `PAGESPEED_API_KEY` (9).
+- **Testing (11):** **Vitest** added in Phase 1 and `scripts/seed-test.ts`
+  implemented for real (wipe + reseed the guarded test DB). Marketing landing
+  page rewritten in Phase 1 (2).
+
+Phase-1 specifics worth remembering: capture idempotency is a **unique-sparse
+`(organization_id, client_capture_id)`** index (retries/CSV re-imports upsert,
+never duplicate); the query layer excludes `junk` **and** soft-deleted
+(`deleted_at`) rows by default; `vitest.config.mts` is `.mts` on purpose so the
+`import.meta.url` `@/` alias resolves as ESM; demo seed is idempotent on the
+`seed-demo-` `clientCaptureId` prefix.
+
 ## 2026-08-01 — P0: product identity registry (two products, one repo)
 
 - **`NEXT_PUBLIC_PRODUCT` is always required** (`applyninja`|`scrapperninja`).

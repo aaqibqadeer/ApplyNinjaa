@@ -115,6 +115,13 @@ Notes:
   (`parse-resume`, `analyze-job`, `map-fields`) return 404 when off. `scraper.*`
   only wires nav (Leads / Campaigns) so far — the leads UI/schema land in later
   phases. None of these flags unlock a secret, so there's no `env.schema.ts` rule.
+- **ScrapperNinja Phase 1 (foundation)** landed the Lead Directory at `/leads`
+  (schema, query/service/CSV layer, API routes, table UI) plus a `vitest` unit
+  suite for the pure logic (`lib/leads/{query,csv,columns}.test.ts`). `npm run
+  seed` now also seeds ~30 demo leads across 2 campaigns, 2 saved views, and one
+  `priority` custom field for the admin org — **idempotent** (keyed on the
+  `seed-demo-` `clientCaptureId` prefix), and only meaningful when `scraper` is
+  on. See `docs/guides/scraper-setup.md`.
 
 ## Adding a flag (checklist, per CLAUDE.md §7)
 
