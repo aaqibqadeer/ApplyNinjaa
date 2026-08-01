@@ -72,11 +72,16 @@ export async function AppHeader({ session }: AppHeaderProps) {
       .map((org) => ({ id: org.id, name: org.name }));
   }
 
+  const homeHref =
+    features.scraper.enabled && !features.jobApplications
+      ? "/leads"
+      : "/dashboard";
+
   return (
     <header className="border-border bg-background/80 sticky top-0 z-40 w-full border-b backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-6 px-6">
         <Link
-          href="/dashboard"
+          href={homeHref}
           className="flex shrink-0 items-center gap-2 font-semibold"
         >
           <BrandMark />
