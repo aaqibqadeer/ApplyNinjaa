@@ -10,7 +10,15 @@ import type { MetadataRoute } from "next";
 import { env } from "@/config/env.schema";
 
 /** Route prefixes crawlers shouldn't index (auth-gated or non-content). */
-const DISALLOW = ["/api/", "/admin", "/dashboard", "/settings", "/invite"];
+const DISALLOW = [
+  "/api/",
+  "/admin",
+  "/dashboard",
+  "/leads",
+  "/profiles",
+  "/settings",
+  "/invite",
+];
 
 export default function robots(): MetadataRoute.Robots {
   const base = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");

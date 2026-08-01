@@ -2,21 +2,15 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { APP_NAME } from "@/config/brand";
-
-/** Audience strip under the hero — who this is built for. */
-const AUDIENCE = [
-  "F-1 OPT / STEM OPT",
-  "H1-B",
-  "TN",
-  "H4-EAD",
-  "…and every job seeker tired of re-typing their resume",
-] as const;
+import { activeProduct } from "@/config/products";
 
 /**
  * Landing-page hero: badge, headline, sub-headline, primary CTAs, and a
- * product-screenshot placeholder.
+ * product-screenshot placeholder. Copy comes from activeProduct.marketing.
  */
 export function Hero() {
+  const { hero } = activeProduct.marketing;
+
   return (
     <section className="from-muted/60 to-background bg-gradient-to-b">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-6 px-6 py-24 text-center sm:py-28">
@@ -25,26 +19,23 @@ export function Hero() {
             className="bg-primary size-1.5 rounded-full"
             aria-hidden="true"
           />
-          Built for visa-constrained job seekers
+          {hero.badge}
         </span>
 
         <h1 className="font-heading max-w-3xl text-4xl font-bold tracking-tight text-balance sm:text-6xl">
-          Stop applying to jobs that were never going to say yes.
+          {hero.headline}
         </h1>
 
         <p className="text-muted-foreground max-w-2xl text-lg text-pretty">
-          {APP_NAME} screens every posting against your deal-breakers — visa
-          sponsorship, citizenship requirements, clearance — scores your fit
-          against your resume, autofills the application, and tracks it. One
-          click, any job site.
+          {APP_NAME} {hero.sub}
         </p>
 
         <div className="flex flex-col items-center gap-3 sm:flex-row">
           <Button asChild size="lg">
-            <Link href="/signup">Start free — no card required</Link>
+            <Link href="/signup">{hero.cta}</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <a href="#how-it-works">See how it works</a>
+            <a href="#how-it-works">{hero.secondaryCta}</a>
           </Button>
         </div>
 
@@ -55,12 +46,12 @@ export function Hero() {
           aria-label="Product screenshot placeholder"
         >
           <span className="text-muted-foreground text-sm">
-            [ Product screenshot — extension popup analyzing a job posting ]
+            {hero.screenshotLabel}
           </span>
         </div>
 
         <ul className="text-muted-foreground mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
-          {AUDIENCE.map((item) => (
+          {hero.audience.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>

@@ -44,6 +44,9 @@ jobs:
         env:
           SKIP_ENV_VALIDATION: "1"
           NEXT_PUBLIC_APP_URL: https://example.com
+          # Identity registry (config/products.ts) — required even when
+          # SKIP_ENV_VALIDATION bypasses Zod; absence throws at module load.
+          NEXT_PUBLIC_PRODUCT: applyninja
 
       - name: Build extension
         run: npm run build:extension

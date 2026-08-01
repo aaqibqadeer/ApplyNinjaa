@@ -5,6 +5,18 @@
 > Recent phases stay here; older entries live in
 > [`decisions-archive.md`](./decisions-archive.md). Keep this file small.
 
+## 2026-08-01 — P0: product identity registry (two products, one repo)
+
+- **`NEXT_PUBLIC_PRODUCT` is always required** (`applyninja`|`scrapperninja`).
+  No silent default — shipping the wrong brand is worse than failing boot.
+- **Identity ≠ capability.** `config/products.ts` owns name/copy/legal;
+  `config/features.ts` owns feature flags. Staging can run ScrapperNinja
+  identity with enrichment off.
+- **Two long-lived release branches** (`apply-next`/`master` and
+  `scrapper-next`/`scrapper-master`) share `staging` for boilerplate. Product
+  identity is env-driven so branches don't diverge on config. Detail:
+  `docs/guides/two-product-production-plan.md`.
+
 ## 2026-07-28 — v1.1: tiers, extension redesign, branding, hosting
 
 - **Numeric limits must not go through `hasAccess()`.** Its `toBoolean`

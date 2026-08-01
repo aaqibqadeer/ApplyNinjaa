@@ -9,6 +9,19 @@ an environment variable. App code checks `features.*`; it never reads
 feature whose flag is off degrades to "not rendered / not routable" — never a
 broken page.
 
+## Identity vs capability
+
+Two independent knobs (two-product production plan §P0):
+
+| Knob | Env | Controls |
+| ---- | --- | -------- |
+| **Identity** | `NEXT_PUBLIC_PRODUCT` (`applyninja` \| `scrapperninja`) | Name, tagline, marketing copy, product-specific legal text via `config/products.ts` → `config/brand.ts` |
+| **Capability** | `NEXT_PUBLIC_FEATURE_*` | Which features are on (auth methods, payments, scraper, job applications, …) via `config/features.ts` |
+
+They are independent on purpose: a staging service can run ScrapperNinja's
+identity with enrichment off. `NEXT_PUBLIC_PRODUCT` is **always required** (no
+flag-conditional rule, no silent default).
+
 ## How resolution works
 
 - **Toggle vars** use the `NEXT_PUBLIC_FEATURE_` prefix and are resolved with
