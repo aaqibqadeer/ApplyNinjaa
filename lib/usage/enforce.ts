@@ -29,6 +29,11 @@ import { enforceRateLimit, requestIp } from "./rate-limit";
 const PROFILE_LIMIT_KEY = "profileLimit";
 const PROFILE_LIMIT_FALLBACK = 1;
 
+const LEAD_LIMIT_KEY = "leadLimit";
+const LEAD_LIMIT_FALLBACK = 100;
+const CAMPAIGN_LIMIT_KEY = "campaignLimit";
+const CAMPAIGN_LIMIT_FALLBACK = 2;
+
 /** Short-window abuse limits, on top of the monthly cap. */
 const PER_USER_LIMIT = { limit: 20, windowSeconds: 60 };
 const PER_IP_LIMIT = { limit: 60, windowSeconds: 60 };
@@ -101,6 +106,72 @@ export async function enforceProfileLimit(
     limit === 1
       ? "Your plan includes one profile — upgrade to create more"
       : `Your plan includes ${limit} profiles — upgrade to create more`,
+  );
+}
+
+/**
+ * The plan's max lead count (ScrapperNinja). `-1` → unlimited (Infinity), an
+ * absent/malformed value falls back to the Free allowance. Deliberately NOT
+ * `hasAccess()`, which would coerce any positive number to `true`.
+ */
+export function getLeadLimit(plan: EffectivePlan["plan"]): number {
+  return readNumericLimit(plan, LEAD_LIMIT_KEY, LEAD_LIMIT_FALLBACK);
+}
+
+/**
+ * The plan's max campaign count (ScrapperNinja). Same semantics as
+ * `getLeadLimit` — `-1` unlimited, malformed/absent falls back to Free.
+ */
+export function getCampaignLimit(plan: EffectivePlan["plan"]): number {
+  return readNumericLimit(plan, CAMPAIGN_LIMIT_KEY, CAMPAIGN_LIMIT_FALLBACK);
+}
+
+/**
+ * Assert the org has room for one more lead. Like the profile limit, this gates
+ * CREATION only — a downgrade never deletes existing leads, it just blocks
+ * adding more. No-op when payments is off.
+ */
+export async function enforceLeadLimit(
+  session: Session,
+  currentCount: number,
+): Promise<void> {
+  if (!features.payments.enabled) return;
+  const { plan } = await getEffectivePlan(session);
+  const limit = getLeadLimit(plan);
+  if (currentCount < limit) return;
+  const upgrade = await lowestPlanWithLimitAbove(
+    LEAD_LIMIT_KEY,
+    limit,
+    LEAD_LIMIT_FALLBACK,
+  );
+  throw new EntitlementError(
+    LEAD_LIMIT_KEY,
+    upgrade?.name ?? null,
+    `Your plan includes ${limit} leads — upgrade to store more`,
+  );
+}
+
+/**
+ * Assert the org has room for one more campaign. Creation-only gate, no-op when
+ * payments is off (see `enforceLeadLimit`).
+ */
+export async function enforceCampaignLimit(
+  session: Session,
+  currentCount: number,
+): Promise<void> {
+  if (!features.payments.enabled) return;
+  const { plan } = await getEffectivePlan(session);
+  const limit = getCampaignLimit(plan);
+  if (currentCount < limit) return;
+  const upgrade = await lowestPlanWithLimitAbove(
+    CAMPAIGN_LIMIT_KEY,
+    limit,
+    CAMPAIGN_LIMIT_FALLBACK,
+  );
+  throw new EntitlementError(
+    CAMPAIGN_LIMIT_KEY,
+    upgrade?.name ?? null,
+    `Your plan includes ${limit} campaigns — upgrade to create more`,
   );
 }
 

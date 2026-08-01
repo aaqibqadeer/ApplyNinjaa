@@ -95,9 +95,14 @@ export async function hasAccess(
  * would report any positive number as "allowed".
  */
 export const PLAN_FEATURES = {
+  // ScrapperNinja entitlements.
+  enrichment: "enrichment",
+  offerLines: "offerLines",
+  dataExport: "dataExport",
+  // ApplyNinjaa entitlements — kept so the job-application code paths still
+  // typecheck/gate correctly when `jobApplications` is on in that fork.
   customFilters: "customFilters",
   gmailScan: "gmailScan",
-  dataExport: "dataExport",
 } as const;
 
 export type PlanFeature = (typeof PLAN_FEATURES)[keyof typeof PLAN_FEATURES];
