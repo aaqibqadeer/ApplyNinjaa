@@ -122,22 +122,30 @@ export function InlineEditCell({
       : draft;
 
   return (
-    <button
-      type="button"
-      title="Double-click to edit"
+    <span
+      role="button"
+      tabIndex={0}
+      title="Click row for details · double-click to edit"
       onDoubleClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
         setEditing(true);
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === "F2") {
+          e.stopPropagation();
+          e.preventDefault();
+          setEditing(true);
+        }
+      }}
       className={cn(
-        "hover:bg-accent focus-visible:ring-ring block w-full truncate rounded-sm px-1 py-0.5 text-left text-sm focus-visible:ring-2 focus-visible:outline-none",
+        "hover:bg-accent focus-visible:ring-ring block w-full cursor-text truncate rounded-sm px-1 py-0.5 text-left text-sm focus-visible:ring-2 focus-visible:outline-none",
         className,
       )}
     >
       {displayLabel || (
         <span className="text-muted-foreground">{placeholder}</span>
       )}
-    </button>
+    </span>
   );
 }

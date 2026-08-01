@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Filter, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
 
@@ -235,6 +235,8 @@ export function LeadsTable({
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [nonce, setNonce] = useState(0);
+  /** Delay row→drawer so a double-click can win for inline edit. */
+  const detailClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [addForm, setAddForm] = useState({
     businessName: "",
@@ -587,8 +589,19 @@ export function LeadsTable({
   }
 
   function openDetail(lead: Lead) {
-    setDetailLead(lead);
-    setDetailOpen(true);
+    if (detailClickTimer.current) clearTimeout(detailClickTimer.current);
+    detailClickTimer.current = setTimeout(() => {
+      setDetailLead(lead);
+      setDetailOpen(true);
+      detailClickTimer.current = null;
+    }, 220);
+  }
+
+  function cancelPendingDetail() {
+    if (detailClickTimer.current) {
+      clearTimeout(detailClickTimer.current);
+      detailClickTimer.current = null;
+    }
   }
 
   function cellContent(lead: Lead, column: TableColumn) {
@@ -1031,6 +1044,7 @@ export function LeadsTable({
                   key={lead.id}
                   className="cursor-pointer"
                   onClick={() => openDetail(lead)}
+                  onDoubleClick={cancelPendingDetail}
                 >
                   <TableCell
                     className="w-8"
