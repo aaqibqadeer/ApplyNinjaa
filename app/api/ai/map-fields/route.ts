@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { isAnyAiEnabled } from "@/config/features";
+import { features, isAnyAiEnabled } from "@/config/features";
 import { detectedFieldSchema, mapFormFields } from "@/lib/ai/tasks";
 import { authErrorResponse, authorizeApi } from "@/lib/auth/roles";
 import {
@@ -25,7 +25,7 @@ const inputSchema = z.object({
  * can highlight them for manual review (never silently skipped).
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!isAnyAiEnabled) {
+  if (!features.jobApplications || !isAnyAiEnabled) {
     return NextResponse.json({ error: "Not available" }, { status: 404 });
   }
   try {

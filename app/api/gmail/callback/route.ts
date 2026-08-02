@@ -6,7 +6,7 @@ import { completeGmailOAuth } from "@/lib/gmail/oauth";
 
 /** Google redirects here after Gmail consent. */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  if (!features.gmail) {
+  if (!features.jobApplications || !features.gmail) {
     return NextResponse.json({ error: "Not available" }, { status: 404 });
   }
   const code = request.nextUrl.searchParams.get("code");

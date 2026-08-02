@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { activeProduct } from "@/config/products";
 
 export interface PublicPlan {
   id: string;
@@ -39,6 +40,8 @@ function dollars(cents: number): string {
 /** Public pricing cards — data comes from the plans table, never hardcoded. */
 export function PricingSection({ plans, annualBilling }: PricingSectionProps) {
   const [annual, setAnnual] = useState(false);
+  const { pricing } = activeProduct.marketing;
+  const bullets = activeProduct.pricingBullets;
 
   if (plans.length === 0) return null;
 
@@ -46,10 +49,10 @@ export function PricingSection({ plans, annualBilling }: PricingSectionProps) {
     <section id="pricing" className="bg-muted/40">
       <div className="mx-auto w-full max-w-6xl px-6 py-20">
         <h2 className="font-heading text-center text-3xl font-bold tracking-tight">
-          Simple pricing
+          {pricing.title}
         </h2>
         <p className="text-muted-foreground mt-2 text-center text-sm">
-          Every new account starts with a free trial — no card required.
+          {pricing.sub}
         </p>
 
         {annualBilling && (
@@ -97,8 +100,9 @@ export function PricingSection({ plans, annualBilling }: PricingSectionProps) {
                   </p>
                   <ul className="text-muted-foreground flex flex-col gap-1 text-sm">
                     <li>{plan.aiCallsPerMonth} AI actions / month</li>
-                    <li>Unlimited tracked applications</li>
-                    <li>All Valid Job filters</li>
+                    {bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
                   </ul>
                   <Button
                     asChild

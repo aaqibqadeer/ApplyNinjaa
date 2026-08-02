@@ -51,10 +51,29 @@ export interface PaymentsFeatureFlags {
   annualBilling: boolean;
 }
 
+export interface ScraperFeatureFlags {
+  /** Master switch — lead scraping product (ScrapperNinja). */
+  enabled: boolean;
+  /** Enrichment pass over scraped leads (Phase 3). */
+  enrichment: boolean;
+  /** Per-lead offer-line generation (Phase 3). */
+  offerLines: boolean;
+  /** Generic (non-site-specific) extractor (Phase 2). */
+  genericExtractor: boolean;
+}
+
 export interface Features {
   auth: AuthFeatureFlags;
   /** Subscription / one-off billing (Stripe). */
   payments: PaymentsFeatureFlags;
+  /**
+   * Job-application product surface (ApplyNinjaa): profiles, onboarding,
+   * applications tracker, Gmail scans, job filters, and the resume/field-map AI
+   * tasks. Off in ScrapperNinja forks — those routes 404 and their nav hides.
+   */
+  jobApplications: boolean;
+  /** Lead-scraping product surface (ScrapperNinja). */
+  scraper: ScraperFeatureFlags;
   /** File storage. */
   storage: boolean;
   /** SMS phone-number verification (Twilio Verify). */
@@ -102,6 +121,13 @@ export const features: Features = {
   payments: {
     enabled: !!process.env.NEXT_PUBLIC_FEATURE_PAYMENTS,
     annualBilling: !!process.env.NEXT_PUBLIC_FEATURE_PAYMENTS_ANNUAL_BILLING,
+  },
+  jobApplications: !!process.env.NEXT_PUBLIC_FEATURE_JOB_APPLICATIONS,
+  scraper: {
+    enabled: !!process.env.NEXT_PUBLIC_FEATURE_SCRAPER,
+    enrichment: !!process.env.NEXT_PUBLIC_FEATURE_SCRAPER_ENRICHMENT,
+    offerLines: !!process.env.NEXT_PUBLIC_FEATURE_SCRAPER_OFFER_LINES,
+    genericExtractor: !!process.env.NEXT_PUBLIC_FEATURE_SCRAPER_GENERIC_EXTRACTOR,
   },
   storage: !!process.env.NEXT_PUBLIC_FEATURE_STORAGE,
   phoneVerification: !!process.env.NEXT_PUBLIC_FEATURE_PHONE_VERIFICATION,

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 
 import { VerifyEmailBanner } from "@/components/auth/VerifyEmailBanner";
 import { ApplicationsTable } from "@/components/dashboard/ApplicationsTable";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { Button } from "@/components/ui/button";
+import { features } from "@/config/features";
 import { requireAuth } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import {
@@ -19,6 +21,13 @@ export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  // The dashboard is the applications tracker — a job-applications surface. On a
+  // scraper-only fork, send users to the leads home instead (or 404 when the
+  // scraper product is off too).
+  if (!features.jobApplications) {
+    if (features.scraper.enabled) redirect("/leads");
+    notFound();
+  }
   const session = await requireAuth();
   const profiles = await db.listProfilesForUser(session.user.id);
   const canExport = await hasAccess(session, PLAN_FEATURES.dataExport);

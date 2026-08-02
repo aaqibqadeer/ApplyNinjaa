@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ProfileEditor } from "@/components/profiles/ProfileEditor";
 import { AppHeader } from "@/components/shared/AppHeader";
+import { features } from "@/config/features";
 import { requireAuth } from "@/lib/auth/server";
 import type { ProfileFormValues } from "@/lib/profiles/form-values";
 import { getProfile, type OwnedProfile } from "@/lib/profiles/service";
@@ -47,6 +48,7 @@ export default async function EditProfilePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!features.jobApplications) notFound();
   const session = await requireAuth();
   const { id } = await params;
 

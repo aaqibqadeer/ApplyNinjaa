@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { isAnyAiEnabled } from "@/config/features";
+import { features, isAnyAiEnabled } from "@/config/features";
 import { analyzeJob } from "@/lib/ai/tasks";
 import { authErrorResponse, authorizeApi } from "@/lib/auth/roles";
 import { enabledFiltersForUser } from "@/lib/filters/service";
@@ -26,7 +26,7 @@ const inputSchema = z.object({
  * an overall 0-100 fit score with one-line reasoning. One AI call.
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!isAnyAiEnabled) {
+  if (!features.jobApplications || !isAnyAiEnabled) {
     return NextResponse.json({ error: "Not available" }, { status: 404 });
   }
   try {

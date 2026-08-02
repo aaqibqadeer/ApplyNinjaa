@@ -1,14 +1,17 @@
 /**
  * config/brand.ts — product identity strings, declared once.
  *
- * Metadata, headers, and emails read the name/description from here so a
- * rebrand is a one-file change (visual tokens live in config/theme.ts).
+ * Re-exports from the active product registry (config/products.ts) so a
+ * rebrand / product switch is an env change, not a hunt through call sites.
+ * Visual tokens live in config/theme.ts.
  */
 
-export const APP_NAME = "ApplyNinjaa";
+import { activeProduct } from "./products";
 
-export const APP_DESCRIPTION =
-  "Autofill job applications, screen listings against your deal-breakers, " +
-  "score job fit against your resume, and track every application.";
+export const APP_NAME = activeProduct.name;
 
-export const APP_TAGLINE = "Apply smarter, not slower.";
+export const APP_DESCRIPTION = activeProduct.description;
+
+export const APP_TAGLINE = activeProduct.tagline;
+
+export const APP_SUPPORT_EMAIL = activeProduct.supportEmail;

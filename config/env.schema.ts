@@ -15,6 +15,7 @@
 
 import { z } from "zod";
 import { features, isAnyAuthEnabled } from "./features";
+import { PRODUCT_IDS } from "./products";
 
 /** Coerce common truthy strings ("1", "true", "yes") to a boolean. */
 const booleanFromString = z
@@ -45,6 +46,12 @@ const baseSchema = z.object({
 
   // App base URL — used to build OAuth redirect URIs and email links.
   NEXT_PUBLIC_APP_URL: z.string().min(1).default("http://localhost:3000"),
+  /**
+   * Which product this deployment is (identity: name, marketing copy, legal).
+   * Always required — independent of feature flags. Valid: applyninja |
+   * scrapperninja. Absence must fail boot; never default silently.
+   */
+  NEXT_PUBLIC_PRODUCT: z.enum(PRODUCT_IDS),
   // From-address for transactional auth emails (magic link / reset) sent via
   // Resend in the custom (MongoDB) flow. Optional; defaults to Resend's sandbox.
   AUTH_EMAIL_FROM: optionalString,

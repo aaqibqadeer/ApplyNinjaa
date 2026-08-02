@@ -3,6 +3,8 @@
  * the auth layer. Edge-safe (no Node-only imports).
  */
 
+import { features } from "@/config/features";
+
 /** httpOnly session cookie set by the custom (MongoDB) JWT flow. */
 export const SESSION_COOKIE = "ninjakit_session";
 
@@ -36,7 +38,14 @@ export type TokenPurpose = (typeof TOKEN_PURPOSE)[keyof typeof TOKEN_PURPOSE];
 
 /** Default post-login destination and the login route middleware redirects to. */
 export const LOGIN_PATH = "/login";
-export const DEFAULT_AUTHED_PATH = "/dashboard";
+/**
+ * Post-login landing. Scraper-only deployments land on the Lead Directory;
+ * job-application (or dual) deployments keep `/dashboard`.
+ */
+export const DEFAULT_AUTHED_PATH =
+  features.scraper.enabled && !features.jobApplications
+    ? "/leads"
+    : "/dashboard";
 
 export const sessionCookieOptions = {
   httpOnly: true,

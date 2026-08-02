@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { features } from "@/config/features";
 import { retrackApplication, retrackSchema } from "@/lib/applications/service";
 import { authErrorResponse, authorizeApi } from "@/lib/auth/roles";
 
@@ -14,6 +15,9 @@ export async function POST(
   request: Request,
   { params }: Params,
 ): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const { id } = await params;

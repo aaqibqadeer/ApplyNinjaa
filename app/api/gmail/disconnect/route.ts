@@ -6,7 +6,7 @@ import { deleteGmailConnection } from "@/lib/gmail/store";
 
 /** Remove the stored (encrypted) Gmail refresh token. */
 export async function POST(): Promise<NextResponse> {
-  if (!features.gmail) {
+  if (!features.jobApplications || !features.gmail) {
     return NextResponse.json({ error: "Not available" }, { status: 404 });
   }
   try {

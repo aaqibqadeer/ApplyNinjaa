@@ -7,7 +7,7 @@ import { hasAccess, PLAN_FEATURES } from "@/lib/payments/access";
 
 /** Start the separate read-only Gmail consent flow (redirects to Google). */
 export async function GET(request: Request): Promise<NextResponse> {
-  if (!features.gmail) {
+  if (!features.jobApplications || !features.gmail) {
     return NextResponse.json({ error: "Not available" }, { status: 404 });
   }
   let session;

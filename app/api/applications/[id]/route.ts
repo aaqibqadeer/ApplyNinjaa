@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { features } from "@/config/features";
 import {
   applicationPatchSchema,
   deleteApplication,
@@ -14,6 +15,9 @@ export async function PATCH(
   request: Request,
   { params }: Params,
 ): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const { id } = await params;
@@ -37,6 +41,9 @@ export async function DELETE(
   request: Request,
   { params }: Params,
 ): Promise<NextResponse> {
+  if (!features.jobApplications) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const session = await authorizeApi(request);
     const { id } = await params;

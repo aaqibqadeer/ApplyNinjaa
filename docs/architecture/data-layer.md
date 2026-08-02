@@ -204,3 +204,23 @@ Operational data (AI usage counters, short-window rate limits) deliberately
 does NOT go through this adapter — it lives in the Mongo-only `lib/usage/`
 module because atomic `$inc` upserts and TTL indexes are Mongo primitives, the
 same precedent as `auth_credentials` in the auth adapter.
+
+## ScrapperNinja domain tables (Phase 1)
+
+Five collections back the Lead Directory (`/leads`), gated by the `scraper`
+flag. Each shipped with its Zod schema (`lib/db/schema.ts`), adapter methods,
+and seed entry in the same commit (§1.4); all are tenant-scoped with an indexed
+`organization_id`. Definitions live in `lib/db/mongodb/adapter.ts`.
+
+| Entity          | Collection            | Tenant-scoped? | Key fields                                                                                                                                               | Notable indexes                                                                                                                                                                          |
+| --------------- | --------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lead            | `leads`               | Yes            | `business_name`, `category`, `phone`/`phone_e164`, `website`/`website_domain`, `address`, `owner_name`, `emails`, `tech_stack`, `score`, `offer_line`, `status` (`new`/`needs_review`/`ready`/`exported`/`junk`), `source_type`, `client_capture_id`, `parse_issues`, `custom_fields`, `dedupe_keys`, `deleted_at` (soft delete). | `(org, createdAt)`, `(org, status)`, `(org, phone_e164)`, `(org, website_domain)`, `(org, campaign_ids)`, `(org, score desc)`, `business_name` text; **unique sparse `(org, client_capture_id)`** for idempotent capture. |
+| Campaign        | `campaigns`           | Yes            | `name`, `description`, `query`, `location`, `source_type`, `status` (`active`/`archived`), denormalized `lead_count`, `created_by_user_id`.               | `(org, createdAt)`.                                                                                                                                                                     |
+| LeadSource      | `lead_sources`        | Yes            | Per-capture provenance: `lead_id`, `source_type`, `source_url`, `campaign_id`, `captured_at`, `raw_payload` (original scrape). One lead can have many.    | `(org, lead_id)`.                                                                                                                                                                       |
+| SavedView       | `saved_views`         | Yes            | Per-user Lead Directory presets: `name`, `columns`, `filters`, `sort`, `page_size`, `is_default`.                                                         | unique `(user_id, name)`.                                                                                                                                                               |
+| LeadCustomField | `lead_custom_fields`  | Yes            | Org-defined extra columns: `key`, `label`, `type` (`text`/`number`/`select`/`date`/`boolean`), `options`, `sort_order`. Values live in `leads.custom_fields`. | unique `(org, key)`.                                                                                                                                                                    |
+
+Capture is **idempotent** on `(organization_id, client_capture_id)`: a
+re-submitted capture (extension retry, CSV re-import) upserts the same row
+instead of duplicating. `leads` is soft-deleted via `deleted_at`; the query
+layer (`lib/leads/query.ts`) excludes `junk` and deleted rows by default.
