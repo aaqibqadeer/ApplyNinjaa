@@ -224,3 +224,27 @@ Capture is **idempotent** on `(organization_id, client_capture_id)`: a
 re-submitted capture (extension retry, CSV re-import) upserts the same row
 instead of duplicating. `leads` is soft-deleted via `deleted_at`; the query
 layer (`lib/leads/query.ts`) excludes `junk` and deleted rows by default.
+
+## ScrapperNinja capture tables (Phase 2)
+
+Two more collections back the capture pipeline (extension ingest + rescue),
+gated by the `scraper` flag. `source_packs` is **platform-level** — like `plans`
+it has **no `organization_id`** (§15, the deliberate §1.3 exception), because the
+same selectors serve every tenant's extension. `capture_sessions` is
+tenant-scoped like the rest.
+
+| Entity         | Collection         | Tenant-scoped?     | Key fields                                                                                                                                                    | Notable indexes                                    |
+| -------------- | ------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| SourcePack     | `source_packs`     | No (platform, §15) | Server-pushed selectors: `source_id`, `version`, `automation_tier`, `selectors` (field→CSS map), `notes`, `is_active`. Extension fetches active packs, caches by `version`. | unique `source_id`; `is_active`.                   |
+| CaptureSession | `capture_sessions` | Yes                | One extension run: `campaign_id`, `source_type`, `source_url`, `mode` (`fast`/`deep`), `started_at`/`ended_at`, `captured_count`, `needs_review_count`, `status` (`running`/`completed`/`failed`/`canceled`), `extension_version`, `created_by_user_id`. | `(org, started_at desc)`.                          |
+
+Ingest (`POST /api/leads/ingest`, Bearer) upserts each record on
+`(org, client_capture_id)`, writes one `lead_sources` provenance row per record,
+bumps `campaign.lead_count` for **newly-created** leads only, and marks records
+that arrived with `parse_issues[]` as `needs_review` (keeping `raw_snippet`). Up
+to 25 flagged records are repaired **inline** via DeepSeek (`lib/scrape/rescue.ts`);
+the rest are drained by `POST /api/leads/rescue`. Every AI call goes through
+`enforceAiQuota` + `recordAiCall`; task→provider routing lives in
+`lib/ai/routing.ts` (all tasks → DeepSeek today). Selector-pack CRUD is
+super-admin-only at `/api/admin/source-packs` (`authorizeApi({ superAdmin: true })`,
+§14); the extension reads active packs at `GET /api/scrape/selectors`.

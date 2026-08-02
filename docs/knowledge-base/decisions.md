@@ -5,6 +5,28 @@
 > Recent phases stay here; older entries live in
 > [`decisions-archive.md`](./decisions-archive.md). Keep this file small.
 
+## 2026-08-02 — ScrapperNinja Phase 2 SERVER side (ingest, rescue, extract, packs)
+
+Built the server half of the capture extension (no extension UI touched — that's
+a separate, later slice). Notable calls a future agent shouldn't re-derive:
+
+- **`source_packs` is platform-level** (no `organization_id`), like `plans` —
+  selectors serve every tenant. Unique on `source_id` (one pack per source);
+  admin CRUD is **`authorizeApi({ superAdmin: true })`**, never `requireRole`.
+- **Task→provider routing** lives in `lib/ai/routing.ts` (`providerForTask`), all
+  8 pipeline tasks → DeepSeek today. It imports only `config/features` (never
+  `env.schema`) so the pure scrape modules + their vitest stay DB/env-free.
+- **Test-safety pattern:** `lib/scrape/generate.ts` imports the `ai()` accessor
+  **lazily** (`await import("@/lib/ai")`) so `parseRescueResponse` /
+  `pickBestRepeatedGroup` are unit-testable without loading `env.schema`.
+- **Inline rescue is best-effort:** ingest saves leads first, then rescues ≤25
+  flagged records; hitting the AI cap (`UsageLimitError`) or a bad snippet just
+  leaves the record in the review queue — it never fails the ingest.
+- **Campaign `lead_count`** bumps only for **newly-created** leads, so a re-synced
+  batch (idempotent upsert) never inflates it.
+- New `AiCallKind`s: `lead_rescue`, `scrape_extract`. Capture sessions auto-stamp
+  `ended_at` when PATCHed to a terminal status.
+
 ## 2026-08-01 — ScrapperNinja Phase 1 (foundation) + the 20 locked decisions
 
 Phase 1 built the schema, Lead Directory (`/leads`), query/service/CSV layer,

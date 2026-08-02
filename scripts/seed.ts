@@ -40,6 +40,7 @@ import {
   type NewOrganizationMember,
   type NewPlan,
   type NewSavedView,
+  type NewSourcePack,
   type Organization,
   type WebsiteStatus,
 } from "@/lib/db";
@@ -855,6 +856,37 @@ async function seedDemoSavedViews(
 }
 
 /**
+ * Seed the Google Maps selector pack (server-pushed selectors, decision #7).
+ * Platform-level (§15) — no org. Idempotent by `sourceId`: present = skip, so a
+ * super admin's later selector edits are never clobbered on re-seed.
+ */
+async function seedSourcePacks(): Promise<void> {
+  const googleMaps: NewSourcePack = {
+    sourceId: "google-maps",
+    version: 1,
+    automationTier: "a",
+    selectors: {
+      resultItem: 'div[role="feed"] > div > div[jsaction]',
+      name: 'div.fontHeadlineSmall, [role="heading"]',
+      category: 'div.fontBodyMedium > div:nth-of-type(1) > span:nth-of-type(1)',
+      rating: "span.fontDisplayLarge, span[role='img'][aria-label*='star']",
+      reviewCount: "span[aria-label*='review']",
+      address: "button[data-item-id='address']",
+      link: "a.hfpxzc",
+      phone: "button[data-item-id^='phone']",
+      website: "a[data-item-id='authority']",
+      hours: "div[jsaction*='openhours']",
+      plusCode: "button[data-item-id='oloc']",
+    },
+    notes:
+      "Bundled fallback lives in the extension; edit this pack to fix a Google DOM change without a new build.",
+    isActive: true,
+  };
+  const existing = await db.getSourcePackBySourceId(googleMaps.sourceId);
+  if (!existing) await db.createSourcePack(googleMaps);
+}
+
+/**
  * The full baseline + demo seed. Exported so `scripts/seed-test.ts` can reuse
  * the exact same routine after wiping the test database. Intentionally does NOT
  * disconnect — the caller owns the connection lifecycle (the CLI runner below
@@ -1077,6 +1109,9 @@ export async function runSeed(): Promise<void> {
   await seedDemoCustomFields(org.id);
   await seedDemoSavedViews(org.id, admin.id);
 
+  // Platform-level selector packs (server-pushed selectors, §15). Idempotent.
+  await seedSourcePacks();
+
   console.log("Seed complete:");
   console.log(`  organization  ${org.id} (${org.slug})`);
   console.log(`  admin user    ${admin.id} (${admin.email})`);
@@ -1110,6 +1145,10 @@ export async function runSeed(): Promise<void> {
   );
   console.log(
     `  saved views   ${savedViews.length}; custom fields ${customFields.length}`,
+  );
+  const sourcePacks = await db.listSourcePacks();
+  console.log(
+    `  source packs  ${sourcePacks.map((p) => p.sourceId).join(", ") || "none"}`,
   );
   console.log(`  password for both: ${SEED_PASSWORD}`);
 }

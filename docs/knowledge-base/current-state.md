@@ -3,10 +3,12 @@
 > **Read this first, every session** (CLAUDE.md §11). Living **snapshot** —
 > overwritten, not appended. Keep it terse. Update at the end of every phase.
 
-_Last updated: 2026-08-01 — **ScrapperNinja Phase 1 (foundation) complete** on
-`cursor/scrapperninja-phase1-ba86`: product-identity registry (P0), Lead
-Directory at `/leads`, and a vitest unit suite. Typecheck + lint + `npm test`
-pass; seed + `/leads` runtime-verified against local Mongo._
+_Last updated: 2026-08-02 — **ScrapperNinja Phase 2 SERVER side complete** on
+`cursor/scrapperninja-phase2-ba86`: capture ingest + parse-rescue + generic
+extract APIs, server-pushed selector packs, and capture sessions. Typecheck +
+lint + `npm test` (68) pass; seed + an ingest/rescue/session/pack round-trip
+runtime-verified against local Mongo. **The Chrome extension UI is NOT built
+here** — only the server it talks to._
 
 ## What this repo is
 
@@ -52,6 +54,31 @@ This fork's `.env` ships the **ScrapperNinja** set: `scraper` on,
   views + a `priority` custom field for the admin org (idempotent, `seed-demo-`
   prefix). `scripts/seed-test.ts` now wipes + reseeds the isolated test DB.
 
+## ScrapperNinja Phase 2 — what's built (server side, this phase)
+
+- **2 collections** — `source_packs` (**platform-level**, no `organization_id`,
+  like `plans` §15; unique `source_id`, `is_active`) and `capture_sessions`
+  (org-scoped; `(org, started_at desc)` index). Each shipped Zod schema + Mongo
+  adapter + seed/CRUD in the same commit (§1.4).
+- **Ingest** `POST /api/leads/ingest` (Bearer) — idempotent upsert on
+  `(org, client_capture_id)`, one `lead_sources` provenance row per record,
+  `campaign.lead_count` bumped for **new** leads only, `parse_issues[]` →
+  `needs_review` (keeps `raw_snippet`), inline DeepSeek rescue for ≤25 flagged.
+- **Rescue** `POST /api/leads/rescue` — batch repair by ids or the needs-review
+  queue. **Extract** `POST /api/scrape/extract` — generic-adapter AI extraction
+  of cleaned text blocks (gated on `scraper.genericExtractor`). Both enforce AI
+  quota + `recordAiCall`.
+- **Selector packs** — `GET /api/scrape/selectors` (active packs, Bearer) +
+  super-admin CRUD `/api/admin/source-packs`. Google Maps pack seeded (11
+  selector keys), idempotent by `sourceId`.
+- **Capture sessions** — `POST /api/capture-sessions`, `GET`/`PATCH
+  /api/capture-sessions/[id]` (auto-stamps `ended_at` on a terminal status).
+- **AI plumbing** — `lib/ai/routing.ts` maps all 8 pipeline tasks → DeepSeek in
+  one place; `lib/scrape/{generate,rescue,extract,blocks}.ts` hold the tasks +
+  the pure `parseRescueResponse` / `pickBestRepeatedGroup` (unit-tested,
+  DB/env-free via a lazy `ai()` import). New `AiCallKind`s `lead_rescue`,
+  `scrape_extract`.
+
 ## Resolved choices (carried from ApplyNinjaa v1.1 — still true)
 
 - **DB: MongoDB only** (Supabase adapters deleted, §1.5). `multiTenant` off: org
@@ -79,8 +106,10 @@ This fork's `.env` ships the **ScrapperNinja** set: `scraper` on,
 
 ## Deferred / rough edges
 
-- **Scraper Phase 2 (capture)** — the Chrome extension → `leads` ingest and the
-  generic extractor (`genericExtractor` flag) are not built.
+- **Scraper Phase 2 (capture) — CLIENT side** — the Chrome MV3 capture
+  extension (content script, offline IndexedDB queue, popup, tier enforcement)
+  is **not built**. The server it syncs to (ingest/rescue/extract/selectors/
+  sessions) IS built and runtime-verified.
 - **Scraper Phase 3 (enrich/score/offer-lines)** — `enrichment`/`offerLines`
   flags exist but wire nothing yet; schema fields (`emails`, `techStack`,
   `score`, `offerLine`) are seed-only for now.

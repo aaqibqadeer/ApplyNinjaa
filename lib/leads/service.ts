@@ -56,13 +56,13 @@ export class ScraperError extends Error {
 }
 
 /** 404 when the scraper product is off — every entry point calls this first. */
-function assertScraperEnabled(): void {
+export function assertScraperEnabled(): void {
   if (!features.scraper.enabled) {
     throw new ScraperError("Not found", 404);
   }
 }
 
-function requireOrg(session: Session): string {
+export function requireOrg(session: Session): string {
   if (!session.organizationId) {
     throw new ScraperError("No active organization", 400);
   }
