@@ -20,7 +20,7 @@ const TOKEN_EXPIRES_KEY = "extensionTokenExpiresAt";
 
 export class SignInRequiredError extends Error {
   constructor() {
-    super("Sign in to ApplyNinjaa to continue");
+    super("Sign in to the dashboard to continue");
     this.name = "SignInRequiredError";
   }
 }

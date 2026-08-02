@@ -152,3 +152,22 @@ Feature-scoped to the Lead Directory (`scraper` flag). All are `'use client'`
 | `CampaignPicker`     | `components/leads/CampaignPicker.tsx`       | Pick-or-quick-create campaign selector used when assigning leads.                                                                                |
 | `CampaignsManager`   | `components/leads/CampaignsManager.tsx`     | Campaigns list with inline create, archive/reactivate, and delete (full lifecycle; the picker owns quick-create only).                          |
 | `CustomFieldManager` | `components/leads/CustomFieldManager.tsx`   | Org-level custom-column CRUD (key/label/type/options) backing `leads.custom_fields`.                                                             |
+
+## `extension/` — multi-product Chrome extensions (P1)
+
+The extension folder builds **two** independent MV3 extensions from one shared
+codebase (`docs/guides/two-product-production-plan.md` §P1). It is not React
+UI in the web app, but it is a reuse surface worth cataloguing.
+
+- `extension/shared/` — code both products import: `api.ts` (Bearer auth client),
+  `types.ts` (backend response shapes), `popup.css` (token mirror of the web
+  theme). Product code imports these via relative paths (`../../../shared/api`).
+- `extension/products/<product>/` — each product owns its `manifest.template.json`,
+  `popup.html`, `src/background.ts` (service worker), `src/popup/{App,main}.tsx`,
+  and any product-only libs. ApplyNinjaa also has `src/lib/{dom-actions,quick-fill}.ts`;
+  ScrapperNinja adds `src/content.ts`, `src/lib/{queue,sync}.ts` and `src/scrapers/`.
+- Build: `vite.config.ts` reads `PRODUCT` (`applyninja` | `scrapperninja`) and
+  emits `dist/<product>/`; ScrapperNinja gets a second IIFE pass
+  (`vite.content.config.ts`) for its content script. See
+  `docs/architecture/scraping.md` for the content-script constraint and
+  `docs/guides/scraper-setup.md` for the build commands.

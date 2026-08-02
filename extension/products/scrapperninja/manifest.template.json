@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "ScrapperNinja",
+  "version": "0.1.0",
+  "description": "Capture local businesses from directory sites into your ScrapperNinja lead directory.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ScrapperNinja"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["activeTab", "scripting", "storage", "alarms"],
+  "host_permissions": ["__API_ORIGIN__/*", "https://www.google.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.google.com/maps/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

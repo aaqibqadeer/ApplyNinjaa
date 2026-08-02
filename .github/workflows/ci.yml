@@ -53,5 +53,11 @@ jobs:
           # SKIP_ENV_VALIDATION bypasses Zod; absence throws at module load.
           NEXT_PUBLIC_PRODUCT: applyninja
 
+      # The extension is a separate package (not an npm workspace), so its deps
+      # are installed on their own. The build scripts no longer install
+      # implicitly (they are parameterised by PRODUCT via build.mjs).
+      - name: Install extension deps
+        run: npm --prefix extension ci
+
       - name: Build extension
         run: npm run build:extension

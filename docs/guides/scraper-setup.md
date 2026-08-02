@@ -98,6 +98,24 @@ npm run seed:test      # wipe + reseed the isolated test DB (needs .env.test)
 guardrail (§12), drops the test DB's app collections, then reruns the standard
 seed — never touching dev or prod data.
 
+## 6. Extension build (P1 multi-product)
+
+`extension/` builds two independent MV3 extensions from shared code. Build the
+ScrapperNinja capture extension and load it unpacked:
+
+```bash
+npm run build:extension:scrapper   # -> extension/dist/scrapperninja/
+npm run build:extension:apply      # -> extension/dist/applyninja/  (ApplyNinjaa)
+npm run build:extension            # both
+```
+
+`PRODUCT` (`applyninja` | `scrapperninja`) selects the product; a missing/unknown
+value fails the build. `VITE_API_ORIGIN` (default `http://localhost:3000`) is
+compiled into the manifest and API client. Then `chrome://extensions` →
+Developer mode → **Load unpacked** → `extension/dist/scrapperninja`. Contract and
+the IIFE content-script constraint: `docs/architecture/scraping.md`; the extension
+README covers loading.
+
 ## Later phases
 
 Phase 1 is the **foundation**: schema, Lead Directory UI, query/CSV layer, API
