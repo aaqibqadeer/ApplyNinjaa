@@ -714,6 +714,7 @@ export const ADMIN_ACTIONS = [
   "ban_user",
   "delete_user",
   "cancel_subscription",
+  "assign_plan",
   "plan_create",
   "plan_update",
   "plan_delete",
