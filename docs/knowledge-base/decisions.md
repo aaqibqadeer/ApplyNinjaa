@@ -5,6 +5,31 @@
 > Recent phases stay here; older entries live in
 > [`decisions-archive.md`](./decisions-archive.md). Keep this file small.
 
+## 2026-08-02 — ScrapperNinja Phase 2 CLIENT side (multi-product extension + capture)
+
+Built the extension half (P1 multi-product layout + the ScrapperNinja capture
+extension). Calls a future agent shouldn't re-derive:
+
+- **Multi-product build via one `PRODUCT`-parameterised `vite.config.ts`** with
+  `root` set to `products/<product>/` so `popup.html` lands at the dist root.
+  Content scripts can't be ES modules and rollup can't mix formats, so
+  ScrapperNinja gets a **second IIFE pass** (`vite.content.config.ts`,
+  `emptyOutDir:false`) chained in `build.mjs`. `extension/shared/` holds code both
+  products import; ApplyNinjaa was `git mv`'d intact (behaviour unchanged).
+- **Root `build:extension` no longer installs** extension deps (it's now
+  `PRODUCT=… build`), so `ci.yml` gained an explicit `npm --prefix extension ci`
+  step — the extension is a separate package, not an npm workspace.
+- **Tier "d" is enforced in the service worker**, not just the popup: `handleStart`
+  refuses to run the capture loop on a tier-d adapter; the `manual` adapter also
+  returns `[]` from `harvestList`. Two independent guards for the same rule.
+- **Wire-contract alignment (verified against the server Zod schemas):** ingest
+  carries `sourceType`/`campaignId`/`sessionId` at the **batch** level (not per
+  record), `businessName` is required — so `sync.ts` groups by those three and
+  fills a `businessName` fallback (first snippet line) for generic/manual
+  records. Selector-pack `sourceId` is hyphenated ("google-maps") vs the
+  underscored source type, so the worker normalises `_`→`-` before matching.
+  Session terminal status is `canceled` (not "stopped").
+
 ## 2026-08-02 — ScrapperNinja Phase 2 SERVER side (ingest, rescue, extract, packs)
 
 Built the server half of the capture extension (no extension UI touched — that's

@@ -3,12 +3,14 @@
 > **Read this first, every session** (CLAUDE.md §11). Living **snapshot** —
 > overwritten, not appended. Keep it terse. Update at the end of every phase.
 
-_Last updated: 2026-08-02 — **ScrapperNinja Phase 2 SERVER side complete** on
-`cursor/scrapperninja-phase2-ba86`: capture ingest + parse-rescue + generic
-extract APIs, server-pushed selector packs, and capture sessions. Typecheck +
-lint + `npm test` (68) pass; seed + an ingest/rescue/session/pack round-trip
-runtime-verified against local Mongo. **The Chrome extension UI is NOT built
-here** — only the server it talks to._
+_Last updated: 2026-08-02 — **ScrapperNinja Phase 2 complete (server + client)**
+on `cursor/scrapperninja-phase2-ba86`. Server: capture ingest + parse-rescue +
+generic extract APIs, server-pushed selector packs, capture sessions (typecheck
++ lint + `npm test` (68) pass; ingest/rescue/session/pack round-trip
+runtime-verified against local Mongo). Client: the multi-product Chrome
+extension (P1) + the ScrapperNinja capture extension — content-script adapters,
+IndexedDB queue, sync, popup, tier enforcement. Both product builds pass; the
+extension's wire payloads were validated against the server Zod schemas._
 
 ## What this repo is
 
@@ -79,6 +81,31 @@ This fork's `.env` ships the **ScrapperNinja** set: `scraper` on,
   DB/env-free via a lazy `ai()` import). New `AiCallKind`s `lead_rescue`,
   `scrape_extract`.
 
+## ScrapperNinja Phase 2 — what's built (extension/client side, this phase)
+
+- **Multi-product extension (P1)** — `extension/` builds TWO MV3 extensions from
+  shared code: `shared/` (api/types/popup.css), `products/<product>/`, a
+  `PRODUCT`-parameterised `vite.config.ts` → `dist/<product>/`, and a second
+  IIFE pass (`vite.content.config.ts`) for ScrapperNinja's content script.
+  ApplyNinjaa moved intact via `git mv` (behaviour unchanged). Root scripts:
+  `build:extension:apply` / `:scrapper` / `build:extension`.
+- **Capture extension** — `products/scrapperninja/`: source adapters
+  (`scrapers/`: google-maps tier a + deep, generic tier b AI-extract, manual
+  tier d) behind a `registry.resolve(url)`; **tier "d" enforced in the service
+  worker** (auto capture refused, manual only). Content script answers
+  HARVEST_LIST/DETAIL/CAPTURE_PAGE/SCROLL/PING, works static-declared (Maps) or
+  `executeScript`-injected (generic/manual).
+- **Offline + sync** — hand-rolled IndexedDB `captureQueue` (`lib/queue.ts`) keyed
+  by `clientId`; `lib/sync.ts` groups by (sourceType, campaignId, sessionId) and
+  drains to `/api/leads/ingest` in batches of 50 with backoff; a `chrome.alarms`
+  tick every 5 min retries. Idempotent via `clientId` → `clientCaptureId`.
+- **Popup** — sign-in gate, required campaign picker (select/create), Fast/Deep
+  (Deep off when unsupported), pacing, per-run cap (200) + "keep going", live
+  counters, tier-d warning, "Capture this page". Badge shows the live count.
+- **Selector packs** — the worker fetches `GET /api/scrape/selectors` and caches
+  by version; bundled `google-maps/selectors.ts` is the fallback. Pack keys +
+  `sourceId` "google-maps" match the seeded pack. Docs: `architecture/scraping.md`.
+
 ## Resolved choices (carried from ApplyNinjaa v1.1 — still true)
 
 - **DB: MongoDB only** (Supabase adapters deleted, §1.5). `multiTenant` off: org
@@ -106,10 +133,11 @@ This fork's `.env` ships the **ScrapperNinja** set: `scraper` on,
 
 ## Deferred / rough edges
 
-- **Scraper Phase 2 (capture) — CLIENT side** — the Chrome MV3 capture
-  extension (content script, offline IndexedDB queue, popup, tier enforcement)
-  is **not built**. The server it syncs to (ingest/rescue/extract/selectors/
-  sessions) IS built and runtime-verified.
+- **Scraper Phase 2 capture extension** — built, but only build/typecheck/lint
+  and a schema-contract check verify it here; the DOM harvesting (Google Maps
+  cards/detail, generic block detection) is **not exercised in a real browser**
+  (no Chrome + live sites in this environment). Selectors are inherently fragile
+  — that's what the server selector packs are for.
 - **Scraper Phase 3 (enrich/score/offer-lines)** — `enrichment`/`offerLines`
   flags exist but wire nothing yet; schema fields (`emails`, `techStack`,
   `score`, `offerLine`) are seed-only for now.

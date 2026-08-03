@@ -119,11 +119,16 @@ README covers loading.
 ## Later phases
 
 Phase 1 is the **foundation**: schema, Lead Directory UI, query/CSV layer, API
-routes, and demo seed. Still to come, each behind its own flag:
+routes, and demo seed.
 
-- **Phase 2 — capture.** The Chrome MV3 extension captures from Google Maps and
-  generic directories into `leads` (idempotent on `clientCaptureId`); the
-  generic extractor is `NEXT_PUBLIC_FEATURE_SCRAPER_GENERIC_EXTRACTOR`.
+- **Phase 2 — capture (built).** The Chrome MV3 extension (built above) captures
+  from Google Maps (fast/deep) and generic directories into `leads` (idempotent
+  on `clientCaptureId`), queuing offline in IndexedDB and syncing to
+  `/api/leads/ingest`. The generic extractor is
+  `NEXT_PUBLIC_FEATURE_SCRAPER_GENERIC_EXTRACTOR`. Adapter/queue/sync details:
+  `docs/architecture/scraping.md`.
+
+Still to come behind its own flag:
 - **Phase 3 — enrich & personalize.** Email/tech-stack crawl, scoring, and
   per-lead offer lines behind `NEXT_PUBLIC_FEATURE_SCRAPER_ENRICHMENT` /
   `_OFFER_LINES` (AI provider required then).
