@@ -2,12 +2,18 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Filter, Plus, Sparkles, Upload } from "lucide-react";
+import { Briefcase, Filter, Plus, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
 
+import { JobsPanel } from "@/components/jobs/JobsPanel";
+import {
+  RunAiPassDialog,
+  type JobSelection,
+} from "@/components/jobs/RunAiPassDialog";
 import { CampaignPicker } from "@/components/leads/CampaignPicker";
 import { LeadDetailDrawer } from "@/components/leads/LeadDetailDrawer";
 import { BulkActionBar } from "@/components/shared/BulkActionBar";
+import { DetailDrawer } from "@/components/shared/DetailDrawer";
 import {
   ColumnFilter,
   type ColumnFilterType,
@@ -211,6 +217,11 @@ export function LeadsTable({
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "">("");
+  const [notEnriched, setNotEnriched] = useState(false);
+  const [missingOfferLine, setMissingOfferLine] = useState(false);
+  const [duplicatesCount, setDuplicatesCount] = useState<number | null>(null);
+  const [runAiOpen, setRunAiOpen] = useState(false);
+  const [jobsOpen, setJobsOpen] = useState(false);
   const [campaignId, setCampaignId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("campaignId");
@@ -280,6 +291,8 @@ export function LeadsTable({
       if (statusFilter) params.set("status", statusFilter);
       if (campaignId) params.set("campaignId", campaignId);
       if (includeJunk) params.set("includeJunk", "1");
+      if (notEnriched) params.set("notEnriched", "1");
+      if (missingOfferLine) params.set("missingOfferLine", "1");
       for (const [key, spec] of Object.entries(filterSpecs)) {
         if (spec.in) params.set(`f.${key}.in`, spec.in.join(","));
         else if (spec.min !== undefined || spec.max !== undefined) {
@@ -298,6 +311,8 @@ export function LeadsTable({
       statusFilter,
       campaignId,
       includeJunk,
+      notEnriched,
+      missingOfferLine,
       filterSpecs,
     ],
   );
@@ -311,9 +326,30 @@ export function LeadsTable({
       ...(statusFilter ? { status: statusFilter } : {}),
       ...(campaignId ? { campaignId } : {}),
       includeJunk,
+      ...(notEnriched ? { notEnriched: true } : {}),
+      ...(missingOfferLine ? { missingOfferLine: true } : {}),
       filters: filterSpecs,
     }),
-    [sortKey, sortDir, q, statusFilter, campaignId, includeJunk, filterSpecs],
+    [
+      sortKey,
+      sortDir,
+      q,
+      statusFilter,
+      campaignId,
+      includeJunk,
+      notEnriched,
+      missingOfferLine,
+      filterSpecs,
+    ],
+  );
+
+  /** Resolve the current selection for an AI-pass job (ids or selectAll). */
+  const getJobSelection = useCallback(
+    (): JobSelection =>
+      allMatching
+        ? { query: selectionQuery() }
+        : { leadIds: Array.from(selected) },
+    [allMatching, selectionQuery, selected],
   );
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
@@ -352,6 +388,25 @@ export function LeadsTable({
       if (cancelled || !res.ok) return;
       const data = (await res.json().catch(() => ({}))) as { total?: number };
       setNeedsReviewCount(data.total ?? 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [nonce]);
+
+  // Pending duplicate-candidate count for the "possible duplicates" chip. Stays
+  // null (chip hidden) when the duplicates API isn't available yet (404).
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const res = await fetch("/api/duplicates?status=pending").catch(
+        () => null,
+      );
+      if (cancelled || !res || !res.ok) return;
+      const data = (await res.json().catch(() => ({}))) as {
+        candidates?: unknown[];
+      };
+      setDuplicatesCount(data.candidates?.length ?? 0);
     })();
     return () => {
       cancelled = true;
@@ -806,7 +861,9 @@ export function LeadsTable({
     Object.keys(filterSpecs).length +
     (q ? 1 : 0) +
     (statusFilter ? 1 : 0) +
-    (campaignId ? 1 : 0);
+    (campaignId ? 1 : 0) +
+    (notEnriched ? 1 : 0) +
+    (missingOfferLine ? 1 : 0);
 
   return (
     <div className="flex flex-col gap-4">
@@ -871,6 +928,15 @@ export function LeadsTable({
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setJobsOpen(true)}
+          >
+            <Briefcase aria-hidden="true" />
+            Jobs
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setImportOpen(true)}
           >
             <Upload aria-hidden="true" />
@@ -930,6 +996,49 @@ export function LeadsTable({
               : status}
           </button>
         ))}
+        <span className="bg-border mx-1 h-4 w-px" aria-hidden="true" />
+
+        <Link
+          href="/leads/duplicates"
+          className={cn(
+            "flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors",
+            "text-muted-foreground hover:bg-accent",
+          )}
+        >
+          possible duplicates
+          {duplicatesCount !== null && duplicatesCount > 0 && (
+            <Badge variant="secondary" className="ml-1 px-1.5 py-0">
+              {duplicatesCount}
+            </Badge>
+          )}
+        </Link>
+
+        <button
+          type="button"
+          onClick={() => withReset(() => setNotEnriched((v) => !v))}
+          className={cn(
+            "rounded-md border px-2 py-0.5 text-xs font-medium transition-colors",
+            notEnriched
+              ? "bg-primary text-primary-foreground border-transparent"
+              : "text-muted-foreground hover:bg-accent",
+          )}
+        >
+          not enriched
+        </button>
+
+        <button
+          type="button"
+          onClick={() => withReset(() => setMissingOfferLine((v) => !v))}
+          className={cn(
+            "rounded-md border px-2 py-0.5 text-xs font-medium transition-colors",
+            missingOfferLine
+              ? "bg-primary text-primary-foreground border-transparent"
+              : "text-muted-foreground hover:bg-accent",
+          )}
+        >
+          no offer line
+        </button>
+
         <label className="text-muted-foreground ml-2 flex items-center gap-1.5 text-xs">
           <Checkbox
             checked={includeJunk}
@@ -952,6 +1061,14 @@ export function LeadsTable({
         onClear={resetSelection}
         onSelectAllMatching={() => setAllMatching(true)}
       >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setRunAiOpen(true)}
+        >
+          <Sparkles aria-hidden="true" />
+          Run AI pass
+        </Button>
         <Select
           className="h-8 w-36"
           aria-label="Set status"
@@ -1186,6 +1303,22 @@ export function LeadsTable({
         onOpenChange={setImportOpen}
         onImport={importLeads}
       />
+
+      <RunAiPassDialog
+        open={runAiOpen}
+        onOpenChange={setRunAiOpen}
+        selectedCount={selectedCount}
+        getSelection={getJobSelection}
+        onLaunched={() => setJobsOpen(true)}
+      />
+
+      <DetailDrawer
+        open={jobsOpen}
+        onOpenChange={setJobsOpen}
+        title="Jobs"
+      >
+        <JobsPanel open={jobsOpen} />
+      </DetailDrawer>
 
       <Dialog
         open={addOpen}

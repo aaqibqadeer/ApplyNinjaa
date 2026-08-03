@@ -248,3 +248,26 @@ the rest are drained by `POST /api/leads/rescue`. Every AI call goes through
 `lib/ai/routing.ts` (all tasks → DeepSeek today). Selector-pack CRUD is
 super-admin-only at `/api/admin/source-packs` (`authorizeApi({ superAdmin: true })`,
 §14); the extension reads active packs at `GET /api/scrape/selectors`.
+
+## ScrapperNinja processing tables (Phase 3)
+
+Three more collections back the batch processing pipeline (normalize, dedupe,
+enrich, label, score, offer — see `scraping.md`), gated by the `scraper` flag and
+all tenant-scoped. Each shipped with its Zod schema, adapter methods, and (for
+`offer_prompts`) a seed entry in the same commit (§1.4). `app_settings` also
+gained a `lead_scoring_rubric` string (platform-level singleton; seeded from
+`DEFAULT_SCORING_RUBRIC`, super-admin editable).
+
+| Entity             | Collection             | Tenant-scoped? | Key fields                                                                                                                                                                              | Notable indexes                              |
+| ------------------ | ---------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| BatchJob           | `batch_jobs`           | Yes            | An async pass over a lead selection: `type` (`rescue`/`normalize`/`dedupe`/`label`/`enrich`/`score`/`offer`), `status` (`queued`/`running`/`done`/`failed`/`canceled`), `target_filter` (serialized lead query) **or** `lead_ids[]`, counters `total`/`processed`/`succeeded`/`failed`, `error`, `params`, `created_by_user_id`, `started_at`/`finished_at`. | `(org, createdAt desc)`, `(org, status)`.    |
+| OfferPrompt        | `offer_prompts`        | Yes            | A reusable cold-email opener template: `name`, `prompt_text` (with `{{placeholders}}`), `is_default` (≤1 per org, enforced in the service), `provider`/`model`, `created_by_user_id`.    | `(org, createdAt)`.                          |
+| DuplicateCandidate | `duplicate_candidates` | Yes            | A pair the dedupe pass flagged for human review: `lead_a_id`, `lead_b_id`, `matched_on[]` (`phone`/`domain`/`name`), `confidence` (0–1), `status` (`pending`/`merged`/`dismissed`).      | `(org, status)`, `(org, lead_a_id)`.         |
+
+Jobs run **in-process** via `after()` (no Redis/worker) — see `lib/jobs/runner.ts`
+and the pipeline section in `scraping.md` for chunking, cancel/resume, stale
+detection, and per-lead AI-quota enforcement. Dedupe **only ever writes
+candidates** (`duplicate_candidates`); a merge is applied exclusively by the human
+review endpoints (`/api/duplicates/[id]/merge|dismiss`), which repoint
+`lead_sources` from the loser to the primary and soft-delete the loser with
+`merged_into_id` set.

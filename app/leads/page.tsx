@@ -59,6 +59,20 @@ export default async function LeadsPage() {
               Campaigns
             </Link>
             <Link
+              href="/leads/duplicates"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Duplicates
+            </Link>
+            {features.scraper.offerLines && (
+              <Link
+                href="/leads/prompts"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Prompts
+              </Link>
+            )}
+            <Link
               href="/leads/sessions"
               className="text-muted-foreground hover:text-foreground"
             >

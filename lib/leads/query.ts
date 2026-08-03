@@ -68,6 +68,17 @@ export const leadQueryParamsSchema = z.object({
   status: leadStatusSchema.optional(),
   sourceType: leadSourceTypeSchema.optional(),
   includeJunk: z.boolean().default(false),
+  /**
+   * Preset: leads that haven't been enriched (enrichment_status not "done" —
+   * includes never-attempted/null). Powers the "not enriched" chip.
+   */
+  notEnriched: z.boolean().default(false),
+  /**
+   * Preset: leads with no offer line yet (null or empty). Powers the "no offer
+   * line" chip. Kept as a dedicated param because the query layer has no
+   * generic "empty text" filter operator.
+   */
+  missingOfferLine: z.boolean().default(false),
   /** Per-column filters, keyed by column key (`f.<col>...` in the URL). */
   filters: z.record(z.string(), leadFilterSpecSchema).default({}),
 });
@@ -203,6 +214,16 @@ export function buildLeadQuery(
   if (params.sourceType) filter.source_type = params.sourceType;
   if (params.status) filter[STATUS_DB_FIELD] = params.status;
 
+  // Preset filters (chips). "Not enriched" matches anything not marked done,
+  // including a null/absent status; "missing offer line" matches null/empty.
+  if (params.notEnriched) filter.enrichment_status = { $ne: "done" };
+  if (params.missingOfferLine) {
+    filter.$and = [
+      ...((filter.$and as unknown[]) ?? []),
+      { $or: [{ offer_line: null }, { offer_line: "" }] },
+    ];
+  }
+
   // Per-column filters (validated + whitelisted).
   let statusExplicitlyFiltered = params.status !== undefined;
   for (const [key, spec] of Object.entries(params.filters)) {
@@ -311,6 +332,15 @@ export function parseLeadQueryFromSearchParams(
   const includeJunk = searchParams.get("includeJunk");
   if (includeJunk !== null) {
     raw.includeJunk = includeJunk === "1" || includeJunk === "true";
+  }
+  const notEnriched = searchParams.get("notEnriched");
+  if (notEnriched !== null) {
+    raw.notEnriched = notEnriched === "1" || notEnriched === "true";
+  }
+  const missingOfferLine = searchParams.get("missingOfferLine");
+  if (missingOfferLine !== null) {
+    raw.missingOfferLine =
+      missingOfferLine === "1" || missingOfferLine === "true";
   }
 
   // Drop any spec that ended up empty (e.g. blank value).

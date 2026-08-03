@@ -131,6 +131,67 @@ pure, unit-tested core) that re-extracts `businessName`/`phone`/`website`/
   `{ ok, attempted, rescued, capReached }`. Every repair consumes one AI-quota
   call; the cap returns HTTP 402 `AI_CAP_REACHED`.
 
+## Phase 3 processing pipeline (batch AI passes)
+
+Once leads are captured and rescued, an operator runs them through a sequence of
+**batch jobs** (`batch_jobs`) over a lead selection (explicit ids or the current
+filter). The intended order — each step assumes the prior one has run — is:
+
+```
+rescue → normalize → dedupe (review) → enrich → label → score → offer
+```
+
+- **rescue** — repair `needs_review` records from their `rawSnippet` (wraps the
+  Phase 2 rescue pass). AI.
+- **normalize** (`lib/leads/normalize.ts`) — phone → E.164 (`libphonenumber-js`),
+  website → canonical origin + bare domain (social/directory URLs are folded into
+  `socials` / dropped, never stored as a site), and a raw address string → the
+  structured `{street,city,state,postalCode,country}` shape via DeepSeek. Only the
+  address step is AI, and only when a raw address needs structuring.
+- **dedupe** (`lib/leads/dedupe.ts`) — a whole-set scan: (re)compute
+  `dedupeKeys` (`phone:<e164>`, `domain:<domain>`, `name:<slug>|zip:<postal>`),
+  find pairs that share a key, and write `duplicate_candidates` for a human to
+  review. **Never auto-merges** (locked decision). Pure — no AI.
+- **duplicate review** — `GET /api/duplicates` lists pending candidates with both
+  leads hydrated; `POST /api/duplicates/[id]/merge` (`{ primaryId, fieldChoices }`,
+  each field `'a' | 'b'`) applies a human-approved merge (primary keeps the chosen
+  values, `campaignIds` union, `lead_sources` repoint to the primary, loser
+  soft-deleted with `mergedIntoId`); `POST /api/duplicates/[id]/dismiss` keeps
+  both. `resolveMergedFields` (`lib/leads/merge-fields.ts`) is the pure,
+  unit-tested field resolver.
+- **enrich** (`lib/enrich/*`, gated `features.scraper.enrichment`) — crawl the
+  homepage + `/contact` + `/about` (≤3 pages, 10s timeout, 1MB cap, ≤2 redirects,
+  respects `robots.txt`, descriptive UA, never parallel on one host) to extract
+  emails, socials, tech stack (`lib/enrich/tech.ts`), HTTPS, viewport, and
+  copyright year; optional Google PageSpeed (`PAGESPEED_API_KEY`, absent = blank,
+  never fails); best-effort owner name via DeepSeek. `websiteStatus` is then
+  **rule-derived** (`lib/enrich/website-status.ts`): `none` when there is no
+  site; `bad` when any red flag fired (no HTTPS, no viewport, PSI mobile < 50, or
+  copyright > 3 years old); else `has`. The fired signals are stored on the lead's
+  `customFields.websiteStatusSignals`.
+- **label** (`lib/leads/label.ts`) — `businessSize` + `industrySubType` via
+  DeepSeek (Zod enums). AI.
+- **score** (`lib/leads/score.ts`) — `{ score 0-100, reasoning }` via DeepSeek
+  against the rubric in `app_settings.leadScoringRubric` (seeded from
+  `DEFAULT_SCORING_RUBRIC`; a blank setting falls back to it). AI.
+- **offer** (`lib/leads/offer.ts`, gated `features.scraper.offerLines`) — render a
+  chosen `offer_prompts` template's `{{placeholders}}` and generate the offer line
+  via DeepSeek; `skipEdited` leaves hand-edited lines (`offerLineEditedAt`) alone.
+  AI.
+
+**The runner** (`lib/jobs/runner.ts`, decision "in-process, no Redis"):
+`POST /api/jobs` creates the row and schedules processing with `after()` from
+`next/server`, so the request returns immediately. Work proceeds in chunks of 25;
+after each chunk the counters persist and the status is re-read, so `POST
+/api/jobs/[id]/cancel` takes effect mid-run. An in-process runner does **not**
+survive a server restart: a job left `running` with no progress for >10 min is
+reported `stale`, and `POST /api/jobs/[id]/resume` re-queues it (the passes are
+idempotent enough to re-run). Every AI-backed pass enforces the monthly AI quota
+per lead; a job that starts already at the cap is rejected up front with 402, and
+hitting the cap mid-run stops the job with the 402 message on `error`.
+`POST /api/jobs` with `{ estimateOnly: true }` returns `{ estimate: { aiCalls,
+remainingQuota } }` so the UI can show the cost before the user confirms.
+
 ## Dashboard surfaces (Phase 2 client)
 
 The web app exposes the capture pipeline to operators:

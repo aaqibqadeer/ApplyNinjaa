@@ -5,6 +5,33 @@
 > Recent phases stay here; older entries live in
 > [`decisions-archive.md`](./decisions-archive.md). Keep this file small.
 
+## 2026-08-03 — ScrapperNinja Phase 3 UI (jobs, duplicates, prompts)
+
+UI built **against contracts** ahead of the Phase 3 backend (owned by another
+agent). Choices a future agent shouldn't re-derive:
+
+- **Jobs client is UI-only for now:** `components/jobs/{types,api}.ts` hold the
+  client `Job`/`JobType`/estimate shapes + thin `fetch` wrappers. No `lib/jobs`
+  yet. Every wrapper returns a status-carrying `JobsResult<T>` so callers toast
+  on 404 (not built) / 402 (AI cap) instead of throwing — the whole Phase 3 UI
+  degrades gracefully when its API is absent. When the backend lands, align/
+  re-export those types from `lib/jobs`.
+- **Stale = resumable:** a job is "stale" when `running` + `startedAt` >10m ago
+  **and** `updatedAt` >10m ago (`isJobStale`). `JobProgress` self-polls
+  `GET /api/jobs/:id` every 2s while active unless `selfPoll={false}`.
+- **Two preset chips became query-layer params, not `f.` filters:**
+  `notEnriched` (`enrichment_status != "done"`, so it also catches null) and
+  `missingOfferLine` (`offer_line` null/empty) — the query layer has no generic
+  "not equal" / "empty text" operator, and null-valued leads are the common case.
+  Added a filterable `enrichmentStatus` enum **column** too (dropdown/sort). The
+  "possible duplicates" chip is a link to `/leads/duplicates` with a pending
+  count badge (`GET /api/duplicates?status=pending` → `candidates.length`).
+- **`offerLineEditedAt` is stamped in `service.updateLead`** whenever `offerLine`
+  changes to a new value — so the offer AI pass's `skipEdited` can avoid
+  clobbering hand-written copy. (The adapter already mapped the field.)
+- **Duplicate merge contract:** `fieldChoices` maps a lead **field name → the
+  winning lead's id**; `primaryId` is the survivor. Default = leadA for both.
+
 ## 2026-08-03 — ScrapperNinja Phase 2 dashboard + admin UI
 
 Wired the capture pipeline into the web app (server APIs already existed). Calls

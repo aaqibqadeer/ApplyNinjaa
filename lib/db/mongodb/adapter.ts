@@ -29,14 +29,17 @@ import {
   USER_STATUSES,
   newAdminActionSchema,
   newApplicationSchema,
+  newBatchJobSchema,
   newCampaignSchema,
   newCaptureSessionSchema,
+  newDuplicateCandidateSchema,
   newGmailScanSchema,
   newInvitationSchema,
   newJobFilterSchema,
   newLeadCustomFieldSchema,
   newLeadSchema,
   newLeadSourceSchema,
+  newOfferPromptSchema,
   newOrganizationMemberSchema,
   newPlanSchema,
   newProfileSchema,
@@ -49,8 +52,10 @@ import {
   type ApplicationLink,
   type ApplicationStatus,
   type AppSettings,
+  type BatchJob,
   type Campaign,
   type CaptureSession,
+  type DuplicateCandidate,
   type GmailScan,
   type GmailScanProposal,
   type Invitation,
@@ -64,14 +69,17 @@ import {
   type LeadSource,
   type NewAdminAction,
   type NewApplication,
+  type NewBatchJob,
   type NewCampaign,
   type NewCaptureSession,
+  type NewDuplicateCandidate,
   type NewGmailScan,
   type NewInvitation,
   type NewJobFilter,
   type NewLead,
   type NewLeadCustomField,
   type NewLeadSource,
+  type NewOfferPrompt,
   type NewOrganization,
   type NewOrganizationMember,
   type NewPlan,
@@ -80,6 +88,7 @@ import {
   type NewSourcePack,
   type NewSubscription,
   type NewUser,
+  type OfferPrompt,
   type Organization,
   type OrganizationMember,
   type OrgRole,
@@ -99,12 +108,15 @@ import {
   type Subscription,
   type UpdateApplication,
   type UpdateAppSettings,
+  type UpdateBatchJob,
   type UpdateCampaign,
   type UpdateCaptureSession,
+  type UpdateDuplicateCandidate,
   type UpdateGmailScan,
   type UpdateJobFilter,
   type UpdateLead,
   type UpdateLeadCustomField,
+  type UpdateOfferPrompt,
   type UpdateOrganization,
   type UpdatePlan,
   type UpdateProfile,
@@ -166,6 +178,7 @@ interface AppSettingsDoc {
   _id: mongoose.Types.ObjectId;
   key: string;
   trial_days: number;
+  lead_scoring_rubric: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -451,6 +464,51 @@ interface CaptureSessionDoc {
   updatedAt: Date;
 }
 
+interface BatchJobDoc {
+  _id: mongoose.Types.ObjectId;
+  organization_id: mongoose.Types.ObjectId;
+  type: string;
+  status: string;
+  target_filter: Record<string, unknown> | null;
+  lead_ids: string[];
+  total: number;
+  processed: number;
+  succeeded: number;
+  failed: number;
+  error: string | null;
+  params: Record<string, unknown>;
+  created_by_user_id: mongoose.Types.ObjectId;
+  started_at: Date | null;
+  finished_at: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface OfferPromptDoc {
+  _id: mongoose.Types.ObjectId;
+  organization_id: mongoose.Types.ObjectId;
+  name: string;
+  prompt_text: string;
+  is_default: boolean;
+  provider: string | null;
+  model: string | null;
+  created_by_user_id: mongoose.Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface DuplicateCandidateDoc {
+  _id: mongoose.Types.ObjectId;
+  organization_id: mongoose.Types.ObjectId;
+  lead_a_id: mongoose.Types.ObjectId;
+  lead_b_id: mongoose.Types.ObjectId;
+  matched_on: string[];
+  confidence: number;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 /* -- Schemas & models (registered once) ------------------------------------ */
 
 const userSchema = new Schema<UserDoc>(
@@ -522,6 +580,7 @@ const appSettingsSchema = new Schema<AppSettingsDoc>(
   {
     key: { type: String, required: true, unique: true, default: "global" },
     trial_days: { type: Number, required: true, default: DEFAULT_TRIAL_DAYS },
+    lead_scoring_rubric: { type: String, default: null },
   },
   { timestamps: true, collection: "app_settings" },
 );
@@ -1021,6 +1080,79 @@ const captureSessionSchemaMongo = new Schema<CaptureSessionDoc>(
 );
 captureSessionSchemaMongo.index({ organization_id: 1, started_at: -1 });
 
+const batchJobSchemaMongo = new Schema<BatchJobDoc>(
+  {
+    organization_id: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+      index: true,
+    },
+    type: { type: String, required: true },
+    status: { type: String, required: true, default: "queued" },
+    target_filter: { type: Schema.Types.Mixed, default: null },
+    lead_ids: { type: [String], default: [] },
+    total: { type: Number, required: true, default: 0 },
+    processed: { type: Number, required: true, default: 0 },
+    succeeded: { type: Number, required: true, default: 0 },
+    failed: { type: Number, required: true, default: 0 },
+    error: { type: String, default: null },
+    params: { type: Schema.Types.Mixed, default: {} },
+    created_by_user_id: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    started_at: { type: Date, default: null },
+    finished_at: { type: Date, default: null },
+  },
+  { timestamps: true, collection: "batch_jobs" },
+);
+batchJobSchemaMongo.index({ organization_id: 1, createdAt: -1 });
+batchJobSchemaMongo.index({ organization_id: 1, status: 1 });
+
+const offerPromptSchemaMongo = new Schema<OfferPromptDoc>(
+  {
+    organization_id: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+      index: true,
+    },
+    name: { type: String, required: true },
+    prompt_text: { type: String, required: true },
+    is_default: { type: Boolean, required: true, default: false },
+    provider: { type: String, default: null },
+    model: { type: String, default: null },
+    created_by_user_id: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true, collection: "offer_prompts" },
+);
+offerPromptSchemaMongo.index({ organization_id: 1, createdAt: -1 });
+
+const duplicateCandidateSchemaMongo = new Schema<DuplicateCandidateDoc>(
+  {
+    organization_id: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+      index: true,
+    },
+    lead_a_id: { type: Schema.Types.ObjectId, ref: "Lead", required: true },
+    lead_b_id: { type: Schema.Types.ObjectId, ref: "Lead", required: true },
+    matched_on: { type: [String], default: [] },
+    confidence: { type: Number, required: true, default: 0 },
+    status: { type: String, required: true, default: "pending" },
+  },
+  { timestamps: true, collection: "duplicate_candidates" },
+);
+duplicateCandidateSchemaMongo.index({ organization_id: 1, status: 1 });
+duplicateCandidateSchemaMongo.index({ organization_id: 1, lead_a_id: 1 });
+
 /** Reuse existing models across hot-reloads / repeated imports. */
 function model<T>(name: string, schema: Schema<T>): Model<T> {
   return (
@@ -1086,6 +1218,15 @@ const CaptureSessionModel = model<CaptureSessionDoc>(
   "CaptureSession",
   captureSessionSchemaMongo,
 );
+const BatchJobModel = model<BatchJobDoc>("BatchJob", batchJobSchemaMongo);
+const OfferPromptModel = model<OfferPromptDoc>(
+  "OfferPrompt",
+  offerPromptSchemaMongo,
+);
+const DuplicateCandidateModel = model<DuplicateCandidateDoc>(
+  "DuplicateCandidate",
+  duplicateCandidateSchemaMongo,
+);
 
 /* -- Mappers --------------------------------------------------------------- */
 
@@ -1143,6 +1284,7 @@ function toAppSettings(doc: AppSettingsDoc): AppSettings {
   return {
     id: doc._id.toString(),
     trialDays: doc.trial_days,
+    leadScoringRubric: doc.lead_scoring_rubric ?? null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -1455,6 +1597,57 @@ function toCaptureSession(doc: CaptureSessionDoc): CaptureSession {
     status: doc.status as CaptureSession["status"],
     extensionVersion: doc.extension_version ?? null,
     createdByUserId: doc.created_by_user_id.toString(),
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
+function toBatchJob(doc: BatchJobDoc): BatchJob {
+  return {
+    id: doc._id.toString(),
+    organizationId: doc.organization_id.toString(),
+    type: doc.type as BatchJob["type"],
+    status: doc.status as BatchJob["status"],
+    targetFilter: doc.target_filter ?? null,
+    leadIds: doc.lead_ids ?? [],
+    total: doc.total ?? 0,
+    processed: doc.processed ?? 0,
+    succeeded: doc.succeeded ?? 0,
+    failed: doc.failed ?? 0,
+    error: doc.error ?? null,
+    params: doc.params ?? {},
+    createdByUserId: doc.created_by_user_id.toString(),
+    startedAt: doc.started_at ?? null,
+    finishedAt: doc.finished_at ?? null,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
+function toOfferPrompt(doc: OfferPromptDoc): OfferPrompt {
+  return {
+    id: doc._id.toString(),
+    organizationId: doc.organization_id.toString(),
+    name: doc.name,
+    promptText: doc.prompt_text,
+    isDefault: doc.is_default ?? false,
+    provider: doc.provider ?? null,
+    model: doc.model ?? null,
+    createdByUserId: doc.created_by_user_id.toString(),
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
+function toDuplicateCandidate(doc: DuplicateCandidateDoc): DuplicateCandidate {
+  return {
+    id: doc._id.toString(),
+    organizationId: doc.organization_id.toString(),
+    leadAId: doc.lead_a_id.toString(),
+    leadBId: doc.lead_b_id.toString(),
+    matchedOn: doc.matched_on ?? [],
+    confidence: doc.confidence ?? 0,
+    status: doc.status as DuplicateCandidate["status"],
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -1983,6 +2176,8 @@ export class MongoAdapter implements DatabaseAdapter {
     await this.connect();
     const update: Record<string, unknown> = {};
     if (patch.trialDays !== undefined) update.trial_days = patch.trialDays;
+    if (patch.leadScoringRubric !== undefined)
+      update.lead_scoring_rubric = patch.leadScoringRubric ?? null;
     const doc = await AppSettingsModel.findOneAndUpdate(
       { key: "global" },
       { $set: update, $setOnInsert: { key: "global" } },
@@ -2681,6 +2876,19 @@ export class MongoAdapter implements DatabaseAdapter {
     }
   }
 
+  async listLeadsByIds(orgId: string, ids: string[]): Promise<Lead[]> {
+    await this.connect();
+    if (ids.length === 0) return [];
+    const docs = await LeadModel.find({
+      organization_id: new mongoose.Types.ObjectId(orgId),
+      _id: { $in: ids.map((id) => new mongoose.Types.ObjectId(id)) },
+      deleted_at: null,
+    })
+      .lean<LeadDoc[]>()
+      .exec();
+    return docs.map(toLead);
+  }
+
   /* -- Lead sources (raw provenance) --------------------------------------- */
 
   async createLeadSource(input: NewLeadSource): Promise<LeadSource> {
@@ -2713,6 +2921,22 @@ export class MongoAdapter implements DatabaseAdapter {
       .lean<LeadSourceDoc[]>()
       .exec();
     return docs.map(toLeadSource);
+  }
+
+  async repointLeadSources(
+    orgId: string,
+    fromLeadId: string,
+    toLeadId: string,
+  ): Promise<number> {
+    await this.connect();
+    const result = await LeadSourceModel.updateMany(
+      {
+        organization_id: new mongoose.Types.ObjectId(orgId),
+        lead_id: new mongoose.Types.ObjectId(fromLeadId),
+      },
+      { lead_id: new mongoose.Types.ObjectId(toLeadId) },
+    ).exec();
+    return result.modifiedCount ?? 0;
   }
 
   /* -- Campaigns (scoped by organization_id) ------------------------------- */
@@ -3084,6 +3308,259 @@ export class MongoAdapter implements DatabaseAdapter {
       throw new Error(`mongo updateCaptureSession: session ${id} not found`);
     }
     return toCaptureSession(doc);
+  }
+
+  /* -- Batch jobs (scoped by organization_id) ------------------------------ */
+
+  async createBatchJob(input: NewBatchJob): Promise<BatchJob> {
+    await this.connect();
+    const parsed = newBatchJobSchema.parse(input);
+    const created = await BatchJobModel.create({
+      organization_id: new mongoose.Types.ObjectId(parsed.organizationId),
+      type: parsed.type,
+      status: parsed.status,
+      target_filter: parsed.targetFilter ?? null,
+      lead_ids: parsed.leadIds,
+      total: parsed.total,
+      processed: parsed.processed,
+      succeeded: parsed.succeeded,
+      failed: parsed.failed,
+      error: parsed.error ?? null,
+      params: parsed.params,
+      created_by_user_id: new mongoose.Types.ObjectId(parsed.createdByUserId),
+      started_at: parsed.startedAt ?? null,
+      finished_at: parsed.finishedAt ?? null,
+    });
+    return toBatchJob(created.toObject<BatchJobDoc>());
+  }
+
+  async getBatchJob(orgId: string, id: string): Promise<BatchJob | null> {
+    await this.connect();
+    const doc = await BatchJobModel.findOne({
+      _id: id,
+      organization_id: new mongoose.Types.ObjectId(orgId),
+    })
+      .lean<BatchJobDoc>()
+      .exec();
+    return doc ? toBatchJob(doc) : null;
+  }
+
+  async listBatchJobs(orgId: string, limit = 50): Promise<BatchJob[]> {
+    await this.connect();
+    const docs = await BatchJobModel.find({
+      organization_id: new mongoose.Types.ObjectId(orgId),
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean<BatchJobDoc[]>()
+      .exec();
+    return docs.map(toBatchJob);
+  }
+
+  async updateBatchJob(
+    orgId: string,
+    id: string,
+    patch: UpdateBatchJob,
+  ): Promise<BatchJob> {
+    await this.connect();
+    const update: Record<string, unknown> = {};
+    if (patch.status !== undefined) update.status = patch.status;
+    if (patch.targetFilter !== undefined)
+      update.target_filter = patch.targetFilter ?? null;
+    if (patch.leadIds !== undefined) update.lead_ids = patch.leadIds;
+    if (patch.total !== undefined) update.total = patch.total;
+    if (patch.processed !== undefined) update.processed = patch.processed;
+    if (patch.succeeded !== undefined) update.succeeded = patch.succeeded;
+    if (patch.failed !== undefined) update.failed = patch.failed;
+    if (patch.error !== undefined) update.error = patch.error ?? null;
+    if (patch.params !== undefined) update.params = patch.params;
+    if (patch.startedAt !== undefined)
+      update.started_at = patch.startedAt ?? null;
+    if (patch.finishedAt !== undefined)
+      update.finished_at = patch.finishedAt ?? null;
+    const doc = await BatchJobModel.findOneAndUpdate(
+      { _id: id, organization_id: new mongoose.Types.ObjectId(orgId) },
+      update,
+      { new: true },
+    )
+      .lean<BatchJobDoc>()
+      .exec();
+    if (!doc) throw new Error(`mongo updateBatchJob: job ${id} not found`);
+    return toBatchJob(doc);
+  }
+
+  /* -- Offer prompts (scoped by organization_id) --------------------------- */
+
+  async createOfferPrompt(input: NewOfferPrompt): Promise<OfferPrompt> {
+    await this.connect();
+    const parsed = newOfferPromptSchema.parse(input);
+    const created = await OfferPromptModel.create({
+      organization_id: new mongoose.Types.ObjectId(parsed.organizationId),
+      name: parsed.name,
+      prompt_text: parsed.promptText,
+      is_default: parsed.isDefault,
+      provider: parsed.provider ?? null,
+      model: parsed.model ?? null,
+      created_by_user_id: new mongoose.Types.ObjectId(parsed.createdByUserId),
+    });
+    return toOfferPrompt(created.toObject<OfferPromptDoc>());
+  }
+
+  async getOfferPrompt(orgId: string, id: string): Promise<OfferPrompt | null> {
+    await this.connect();
+    const doc = await OfferPromptModel.findOne({
+      _id: id,
+      organization_id: new mongoose.Types.ObjectId(orgId),
+    })
+      .lean<OfferPromptDoc>()
+      .exec();
+    return doc ? toOfferPrompt(doc) : null;
+  }
+
+  async listOfferPrompts(orgId: string): Promise<OfferPrompt[]> {
+    await this.connect();
+    const docs = await OfferPromptModel.find({
+      organization_id: new mongoose.Types.ObjectId(orgId),
+    })
+      .sort({ createdAt: -1 })
+      .lean<OfferPromptDoc[]>()
+      .exec();
+    return docs.map(toOfferPrompt);
+  }
+
+  async updateOfferPrompt(
+    orgId: string,
+    id: string,
+    patch: UpdateOfferPrompt,
+  ): Promise<OfferPrompt> {
+    await this.connect();
+    const update: Record<string, unknown> = {};
+    if (patch.name !== undefined) update.name = patch.name;
+    if (patch.promptText !== undefined) update.prompt_text = patch.promptText;
+    if (patch.isDefault !== undefined) update.is_default = patch.isDefault;
+    if (patch.provider !== undefined) update.provider = patch.provider ?? null;
+    if (patch.model !== undefined) update.model = patch.model ?? null;
+    const doc = await OfferPromptModel.findOneAndUpdate(
+      { _id: id, organization_id: new mongoose.Types.ObjectId(orgId) },
+      update,
+      { new: true },
+    )
+      .lean<OfferPromptDoc>()
+      .exec();
+    if (!doc) throw new Error(`mongo updateOfferPrompt: prompt ${id} not found`);
+    return toOfferPrompt(doc);
+  }
+
+  async deleteOfferPrompt(orgId: string, id: string): Promise<void> {
+    await this.connect();
+    await OfferPromptModel.findOneAndDelete({
+      _id: id,
+      organization_id: new mongoose.Types.ObjectId(orgId),
+    }).exec();
+  }
+
+  async clearDefaultOfferPrompts(
+    orgId: string,
+    exceptId?: string,
+  ): Promise<void> {
+    await this.connect();
+    const filter: Record<string, unknown> = {
+      organization_id: new mongoose.Types.ObjectId(orgId),
+      is_default: true,
+    };
+    if (exceptId) filter._id = { $ne: new mongoose.Types.ObjectId(exceptId) };
+    await OfferPromptModel.updateMany(filter, { is_default: false }).exec();
+  }
+
+  /* -- Duplicate candidates (scoped by organization_id) -------------------- */
+
+  async createDuplicateCandidate(
+    input: NewDuplicateCandidate,
+  ): Promise<DuplicateCandidate> {
+    await this.connect();
+    const parsed = newDuplicateCandidateSchema.parse(input);
+    const created = await DuplicateCandidateModel.create({
+      organization_id: new mongoose.Types.ObjectId(parsed.organizationId),
+      lead_a_id: new mongoose.Types.ObjectId(parsed.leadAId),
+      lead_b_id: new mongoose.Types.ObjectId(parsed.leadBId),
+      matched_on: parsed.matchedOn,
+      confidence: parsed.confidence,
+      status: parsed.status,
+    });
+    return toDuplicateCandidate(created.toObject<DuplicateCandidateDoc>());
+  }
+
+  async getDuplicateCandidate(
+    orgId: string,
+    id: string,
+  ): Promise<DuplicateCandidate | null> {
+    await this.connect();
+    const doc = await DuplicateCandidateModel.findOne({
+      _id: id,
+      organization_id: new mongoose.Types.ObjectId(orgId),
+    })
+      .lean<DuplicateCandidateDoc>()
+      .exec();
+    return doc ? toDuplicateCandidate(doc) : null;
+  }
+
+  async listDuplicateCandidates(
+    orgId: string,
+    status?: string,
+  ): Promise<DuplicateCandidate[]> {
+    await this.connect();
+    const filter: Record<string, unknown> = {
+      organization_id: new mongoose.Types.ObjectId(orgId),
+    };
+    if (status) filter.status = status;
+    const docs = await DuplicateCandidateModel.find(filter)
+      .sort({ createdAt: -1 })
+      .lean<DuplicateCandidateDoc[]>()
+      .exec();
+    return docs.map(toDuplicateCandidate);
+  }
+
+  async getDuplicateCandidateForPair(
+    orgId: string,
+    leadAId: string,
+    leadBId: string,
+  ): Promise<DuplicateCandidate | null> {
+    await this.connect();
+    const a = new mongoose.Types.ObjectId(leadAId);
+    const b = new mongoose.Types.ObjectId(leadBId);
+    const doc = await DuplicateCandidateModel.findOne({
+      organization_id: new mongoose.Types.ObjectId(orgId),
+      $or: [
+        { lead_a_id: a, lead_b_id: b },
+        { lead_a_id: b, lead_b_id: a },
+      ],
+    })
+      .lean<DuplicateCandidateDoc>()
+      .exec();
+    return doc ? toDuplicateCandidate(doc) : null;
+  }
+
+  async updateDuplicateCandidate(
+    orgId: string,
+    id: string,
+    patch: UpdateDuplicateCandidate,
+  ): Promise<DuplicateCandidate> {
+    await this.connect();
+    const update: Record<string, unknown> = {};
+    if (patch.status !== undefined) update.status = patch.status;
+    if (patch.confidence !== undefined) update.confidence = patch.confidence;
+    if (patch.matchedOn !== undefined) update.matched_on = patch.matchedOn;
+    const doc = await DuplicateCandidateModel.findOneAndUpdate(
+      { _id: id, organization_id: new mongoose.Types.ObjectId(orgId) },
+      update,
+      { new: true },
+    )
+      .lean<DuplicateCandidateDoc>()
+      .exec();
+    if (!doc) {
+      throw new Error(`mongo updateDuplicateCandidate: ${id} not found`);
+    }
+    return toDuplicateCandidate(doc);
   }
 
   async disconnect(): Promise<void> {

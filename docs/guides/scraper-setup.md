@@ -24,8 +24,9 @@ NEXT_PUBLIC_FEATURE_SCRAPER=1
 # NEXT_PUBLIC_FEATURE_JOB_APPLICATIONS=1        # ApplyNinjaa's surface — off here
 # Phase 2/3 sub-flags (leave off for Phase 1):
 # NEXT_PUBLIC_FEATURE_SCRAPER_GENERIC_EXTRACTOR=1
-# NEXT_PUBLIC_FEATURE_SCRAPER_ENRICHMENT=1
-# NEXT_PUBLIC_FEATURE_SCRAPER_OFFER_LINES=1
+# NEXT_PUBLIC_FEATURE_SCRAPER_ENRICHMENT=1        # unlocks the "enrich" AI pass
+# NEXT_PUBLIC_FEATURE_SCRAPER_OFFER_LINES=1       # unlocks the "offer" pass + /leads/prompts
+# PAGESPEED_API_KEY=<google-pagespeed-key>        # enrichment website-health lookups (Phase 3)
 
 # Auth (email + password is enough for local sign-in) and the seed super admin.
 NEXT_PUBLIC_FEATURE_AUTH_EMAIL_PASSWORD=1
@@ -137,6 +138,34 @@ fetches active packs at capture start and caches them by version, so a Google DO
 change is fixed by editing a pack here, not shipping a new build. The nav tab
 shows only when `features.scraper.enabled` and the viewer is a super admin.
 
+## 8. Phase 3 UI — AI passes, duplicates, prompts
+
+The Phase 3 **dashboard UI** is built (the `/api/jobs*`, `/api/prompts*`, and
+`/api/duplicates*` routes land separately — until then every surface below shows
+a friendly empty state / toast, never a broken page):
+
+- **Run AI pass** — select leads in `/leads` → **Run AI pass** in the bulk bar.
+  Pick a pass (`normalize`, `dedupe`, `label`, `enrich`, `score`, `offer`,
+  `rescue`); the dialog shows an estimated AI-call count and confirms into
+  `POST /api/jobs`. `enrich` needs `…_SCRAPER_ENRICHMENT`; `offer` needs
+  `…_SCRAPER_OFFER_LINES` (disabled otherwise). AI passes consume the DeepSeek
+  quota, so a real `DEEPSEEK_API_KEY` is required to actually run them.
+- **Jobs drawer** — the **Jobs** toolbar button lists recent jobs; active ones
+  render a live `JobProgress` (processed/total, Cancel, Resume if stalled),
+  self-polling `GET /api/jobs/:id` every 2s.
+- **Preset chips** — `/leads` gains **possible duplicates** (links to
+  `/leads/duplicates` with a pending-count badge), **not enriched**
+  (`enrichment_status != done`), and **no offer line** (empty `offer_line`).
+- **Duplicates** — `/leads/duplicates` reviews candidate pairs side-by-side; pick
+  the surviving value per field, then **Merge** or **Keep both**.
+- **Offer prompts** — `/leads/prompts` CRUDs offer-line templates with a live
+  preview against a recent lead (`POST /api/prompts/preview`). Editing a lead's
+  offer line inline stamps `offerLineEditedAt`, so the offer pass's
+  **skip-edited** toggle won't overwrite hand-written copy.
+
+`PAGESPEED_API_KEY` (Google PageSpeed Insights) powers the enrichment pass's
+website-health signal; leave it unset to skip that signal.
+
 ## Later phases
 
 Phase 1 is the **foundation**: schema, Lead Directory UI, query/CSV layer, API
@@ -150,6 +179,8 @@ routes, and demo seed.
   `docs/architecture/scraping.md`.
 
 Still to come behind its own flag:
-- **Phase 3 — enrich & personalize.** Email/tech-stack crawl, scoring, and
-  per-lead offer lines behind `NEXT_PUBLIC_FEATURE_SCRAPER_ENRICHMENT` /
-  `_OFFER_LINES` (AI provider required then).
+- **Phase 3 — enrich & personalize.** The **UI** ships now (§8: AI-pass jobs,
+  duplicate review, offer prompts). The server passes — email/tech-stack crawl,
+  scoring, per-lead offer lines, dedupe detection — land behind
+  `NEXT_PUBLIC_FEATURE_SCRAPER_ENRICHMENT` / `_OFFER_LINES` (AI provider +
+  optional `PAGESPEED_API_KEY` required then).

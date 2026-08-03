@@ -301,6 +301,14 @@ export const DEFAULT_TRIAL_DAYS = 7;
 export const appSettingsSchema = z.object({
   id: z.string(),
   trialDays: z.number().int().nonnegative().default(DEFAULT_TRIAL_DAYS),
+  /**
+   * ScrapperNinja lead-scoring rubric (CLAUDE.md §8 — configurable, not
+   * hardcoded). The prompt DeepSeek judges each lead against in the `score`
+   * job. Null falls back to a built-in default in `lib/leads/score.ts`; the
+   * seed writes a sensible starter rubric so scoring is explainable out of the
+   * box and editable without a deploy.
+   */
+  leadScoringRubric: z.string().nullable().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -308,6 +316,7 @@ export type AppSettings = z.infer<typeof appSettingsSchema>;
 
 export const updateAppSettingsSchema = z.object({
   trialDays: z.number().int().nonnegative().optional(),
+  leadScoringRubric: z.string().nullable().optional(),
 });
 export type UpdateAppSettings = z.infer<typeof updateAppSettingsSchema>;
 
@@ -1230,3 +1239,168 @@ export const updateCaptureSessionSchema = newCaptureSessionSchema
   .omit({ organizationId: true, createdByUserId: true })
   .partial();
 export type UpdateCaptureSession = z.infer<typeof updateCaptureSessionSchema>;
+
+/* ========================================================================== */
+/* ScrapperNinja Phase 3 — batch jobs, offer prompts, duplicate candidates    */
+/* ========================================================================== */
+
+/* -------------------------------------------------------------------------- */
+/* BatchJob (tenant-scoped: one in-process AI/enrichment pass over leads)     */
+/* -------------------------------------------------------------------------- */
+
+/** The kind of work a batch job performs — one handler per type. */
+export const BATCH_JOB_TYPES = [
+  "rescue",
+  "normalize",
+  "dedupe",
+  "label",
+  "enrich",
+  "score",
+  "offer",
+] as const;
+export const batchJobTypeSchema = z.enum(BATCH_JOB_TYPES);
+export type BatchJobType = z.infer<typeof batchJobTypeSchema>;
+
+/** Lifecycle of a batch job. The in-process runner drives the transitions. */
+export const BATCH_JOB_STATUSES = [
+  "queued",
+  "running",
+  "done",
+  "failed",
+  "canceled",
+] as const;
+export const batchJobStatusSchema = z.enum(BATCH_JOB_STATUSES);
+export type BatchJobStatus = z.infer<typeof batchJobStatusSchema>;
+
+export const batchJobSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  type: batchJobTypeSchema,
+  status: batchJobStatusSchema.default("queued"),
+  /**
+   * The target set. Exactly one is meaningful: either a serialized lead query
+   * (`targetFilter`, the shape produced by the query layer's params) OR an
+   * explicit `leadIds` list. Both are stored so the runner can re-resolve the
+   * set on resume.
+   */
+  targetFilter: z.record(z.string(), z.unknown()).nullable().optional(),
+  leadIds: z.array(z.string()).default([]),
+  /* -- progress counters (updated after each chunk) ----------------------- */
+  total: z.number().int().nonnegative().default(0),
+  processed: z.number().int().nonnegative().default(0),
+  succeeded: z.number().int().nonnegative().default(0),
+  failed: z.number().int().nonnegative().default(0),
+  /** Terminal error message when `status` is `failed`. */
+  error: z.string().nullable().optional(),
+  /** Per-type parameters (e.g. offer `promptId`, `variants`, `skipEdited`). */
+  params: z.record(z.string(), z.unknown()).default({}),
+  createdByUserId: z.string(),
+  startedAt: z.coerce.date().nullable().optional(),
+  finishedAt: z.coerce.date().nullable().optional(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type BatchJob = z.infer<typeof batchJobSchema>;
+
+export const newBatchJobSchema = batchJobSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewBatchJob = z.infer<typeof newBatchJobSchema>;
+
+export const updateBatchJobSchema = newBatchJobSchema
+  .omit({ organizationId: true, type: true, createdByUserId: true })
+  .partial();
+export type UpdateBatchJob = z.infer<typeof updateBatchJobSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* OfferPrompt (tenant-scoped: a saved cold-email opening-line template)      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A named prompt template for generating a lead's `offerLine`. `promptText`
+ * contains `{{placeholder}}` tokens resolved per lead by
+ * `lib/leads/render-prompt.ts`. `provider`/`model` override the routed default
+ * when set (nullable = use the routed DeepSeek default). At most one prompt per
+ * org may be `isDefault` — enforced in the service layer, not the schema.
+ */
+export const offerPromptSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string().min(1),
+  promptText: z.string().min(1),
+  isDefault: z.boolean().default(false),
+  provider: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type OfferPrompt = z.infer<typeof offerPromptSchema>;
+
+export const newOfferPromptSchema = offerPromptSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewOfferPrompt = z.infer<typeof newOfferPromptSchema>;
+
+export const updateOfferPromptSchema = newOfferPromptSchema
+  .omit({ organizationId: true, createdByUserId: true })
+  .partial();
+export type UpdateOfferPrompt = z.infer<typeof updateOfferPromptSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* DuplicateCandidate (tenant-scoped: a pair the dedupe pass flagged)         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Lifecycle of a flagged duplicate pair. NOTHING merges automatically
+ * (locked decision #8) — a pair stays `pending` until a human resolves it into
+ * `merged` (via `lib/leads/merge.ts`) or `dismissed` ("keep both").
+ */
+export const DUPLICATE_CANDIDATE_STATUSES = [
+  "pending",
+  "merged",
+  "dismissed",
+] as const;
+export const duplicateCandidateStatusSchema = z.enum(
+  DUPLICATE_CANDIDATE_STATUSES,
+);
+export type DuplicateCandidateStatus = z.infer<
+  typeof duplicateCandidateStatusSchema
+>;
+
+export const duplicateCandidateSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  leadAId: z.string(),
+  leadBId: z.string(),
+  /** Which dedupe keys the pair shares (e.g. `["phone", "domain"]`). */
+  matchedOn: z.array(z.string()).default([]),
+  /** Match confidence in [0, 1]. */
+  confidence: z.number().min(0).max(1).default(0),
+  status: duplicateCandidateStatusSchema.default("pending"),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type DuplicateCandidate = z.infer<typeof duplicateCandidateSchema>;
+
+export const newDuplicateCandidateSchema = duplicateCandidateSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewDuplicateCandidate = z.infer<
+  typeof newDuplicateCandidateSchema
+>;
+
+export const updateDuplicateCandidateSchema = z.object({
+  status: duplicateCandidateStatusSchema.optional(),
+  confidence: z.number().min(0).max(1).optional(),
+  matchedOn: z.array(z.string()).optional(),
+});
+export type UpdateDuplicateCandidate = z.infer<
+  typeof updateDuplicateCandidateSchema
+>;

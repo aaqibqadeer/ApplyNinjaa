@@ -17,6 +17,7 @@
 
 import {
   BUSINESS_SIZES,
+  ENRICHMENT_STATUSES,
   LEAD_SOURCE_TYPES,
   LEAD_STATUSES,
   WEBSITE_STATUSES,
@@ -258,6 +259,19 @@ export const LEAD_COLUMNS: readonly LeadColumnDef[] = [
     enumValues: BUSINESS_SIZES,
     sortField: "business_size",
     filterField: "business_size",
+  },
+  {
+    key: "enrichmentStatus",
+    label: "Enrichment",
+    type: "enum",
+    sortable: true,
+    filterable: true,
+    editable: false,
+    exportable: true,
+    defaultVisible: false,
+    enumValues: ENRICHMENT_STATUSES,
+    sortField: "enrichment_status",
+    filterField: "enrichment_status",
   },
   {
     key: "notes",
