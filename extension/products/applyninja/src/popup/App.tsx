@@ -6,10 +6,7 @@ import {
   ApiRequestError,
   getToken,
   SignInRequiredError,
-} from "../lib/api";
-import { collectPageData, fillFields } from "../lib/dom-actions";
-import type { CollectedField, CollectedPage } from "../lib/dom-actions";
-import { quickFill } from "../lib/quick-fill";
+} from "../../../../shared/api";
 import type {
   AnalyzeJobResponse,
   MapFieldsResponse,
@@ -18,7 +15,10 @@ import type {
   TrackedApplication,
   Usage,
   UsageResponse,
-} from "../lib/types";
+} from "../../../../shared/types";
+import { collectPageData, fillFields } from "../lib/dom-actions";
+import type { CollectedField, CollectedPage } from "../lib/dom-actions";
+import { quickFill } from "../lib/quick-fill";
 
 type Screen =
   | { kind: "loading" }

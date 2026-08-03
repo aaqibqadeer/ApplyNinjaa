@@ -25,6 +25,7 @@ import {
   type Campaign,
   type Lead,
   type LeadCustomField,
+  type LeadSource,
   type NewLead,
   type SavedView,
 } from "@/lib/db";
@@ -56,13 +57,13 @@ export class ScraperError extends Error {
 }
 
 /** 404 when the scraper product is off — every entry point calls this first. */
-function assertScraperEnabled(): void {
+export function assertScraperEnabled(): void {
   if (!features.scraper.enabled) {
     throw new ScraperError("Not found", 404);
   }
 }
 
-function requireOrg(session: Session): string {
+export function requireOrg(session: Session): string {
   if (!session.organizationId) {
     throw new ScraperError("No active organization", 400);
   }
@@ -226,6 +227,21 @@ export async function getLead(session: Session, id: string): Promise<Lead> {
   const lead = await db.getLeadById(orgId, id);
   if (!lead) throw new ScraperError("Lead not found", 404);
   return lead;
+}
+
+/**
+ * Provenance rows for one lead (`lead_sources`). Verifies the lead belongs to
+ * the caller's org first, so the raw payloads never leak across tenants.
+ */
+export async function listLeadSources(
+  session: Session,
+  leadId: string,
+): Promise<LeadSource[]> {
+  assertScraperEnabled();
+  const orgId = requireOrg(session);
+  const lead = await db.getLeadById(orgId, leadId);
+  if (!lead) throw new ScraperError("Lead not found", 404);
+  return db.listLeadSourcesForLead(orgId, leadId);
 }
 
 /* -------------------------------------------------------------------------- */

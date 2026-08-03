@@ -1,14 +1,26 @@
 /**
- * Vite build for the MV3 extension: two entries (React popup page + ES-module
- * service worker) and a tiny plugin that emits manifest.json from
- * manifest.template.json with the backend origin substituted.
+ * Vite build for the MV3 extensions — parameterised by product.
  *
- * No content-script entry on purpose — all page-DOM work ships as serialized
- * functions via chrome.scripting.executeScript (src/lib/dom-actions.ts), so
- * nothing else needs bundling.
+ * This one config builds TWO independent extensions from a shared codebase:
  *
- * Backend origin: VITE_API_ORIGIN (defaults to http://localhost:3000). It
- * lands in both the manifest host_permissions and the API client.
+ *   PRODUCT=applyninja      -> dist/applyninja/
+ *   PRODUCT=scrapperninja   -> dist/scrapperninja/
+ *
+ * PRODUCT is read from the environment; an unknown or missing value fails the
+ * build loudly, because a silent default would ship the wrong extension.
+ *
+ * Each product owns its own popup.html, service worker (src/background.ts) and
+ * manifest.template.json under products/<product>/. Shared code (the API
+ * client, response types, the token-based popup CSS) lives in extension/shared/
+ * and is imported via relative paths.
+ *
+ * Backend origin: VITE_API_ORIGIN (defaults to http://localhost:3000). It lands
+ * in both the manifest host_permissions and the API client via __API_ORIGIN__.
+ *
+ * MV3 content scripts CANNOT be ES modules, but this build emits the popup and
+ * service worker as format "es" and rollup cannot mix formats in one pass. So
+ * ScrapperNinja's content script is built by a SECOND pass — see
+ * vite.content.config.ts.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -18,24 +30,41 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
+const PRODUCTS = ["applyninja", "scrapperninja"] as const;
+type Product = (typeof PRODUCTS)[number];
+
+function resolveProduct(): Product {
+  const value = process.env.PRODUCT;
+  if (!value || !PRODUCTS.includes(value as Product)) {
+    throw new Error(
+      `PRODUCT must be one of ${PRODUCTS.join(" | ")} (got ${
+        value ? `"${value}"` : "undefined"
+      }). Build with e.g. PRODUCT=applyninja.`,
+    );
+  }
+  return value as Product;
+}
+
+const PRODUCT = resolveProduct();
+const PRODUCT_DIR = resolve(__dirname, "products", PRODUCT);
+
 const API_ORIGIN = process.env.VITE_API_ORIGIN ?? "http://localhost:3000";
 
 /** Toolbar icon sizes Chrome asks for, by convention. */
 const ICON_SIZES = [16, 32, 48, 128] as const;
 
 /**
- * Copy extension/icons/icon-<size>.png into the bundle and declare them in the
- * manifest — but ONLY the ones that actually exist. Declaring a missing icon
- * makes Chrome refuse to load the extension, so an absent icon set simply
- * yields a manifest without `icons`, exactly as before. Dropping the PNGs in
- * is therefore a pure file-add with no code change.
+ * Emit manifest.json from the product's manifest.template.json, substituting
+ * the backend origin. Copies whichever icons actually exist (declaring a
+ * missing icon makes Chrome refuse to load the extension). Icons are read from
+ * products/<product>/icons/, falling back to the shared extension/icons/ set.
  */
 function emitManifest(): Plugin {
   return {
     name: "emit-manifest",
     generateBundle() {
       const template = readFileSync(
-        resolve(__dirname, "manifest.template.json"),
+        resolve(PRODUCT_DIR, "manifest.template.json"),
         "utf8",
       );
       const manifest = JSON.parse(
@@ -44,10 +73,16 @@ function emitManifest(): Plugin {
         action?: Record<string, unknown>;
       };
 
+      const iconDirs = [
+        resolve(PRODUCT_DIR, "icons"),
+        resolve(__dirname, "icons"),
+      ];
       const icons: Record<string, string> = {};
       for (const size of ICON_SIZES) {
-        const source = resolve(__dirname, `icons/icon-${size}.png`);
-        if (!existsSync(source)) continue;
+        const source = iconDirs
+          .map((dir) => resolve(dir, `icon-${size}.png`))
+          .find((path) => existsSync(path));
+        if (!source) continue;
         const fileName = `icons/icon-${size}.png`;
         this.emitFile({
           type: "asset",
@@ -71,17 +106,20 @@ function emitManifest(): Plugin {
 }
 
 export default defineConfig({
+  // Root is the product folder so popup.html lands at the dist root
+  // (dist/<product>/popup.html), exactly where the manifest expects it.
+  root: PRODUCT_DIR,
   plugins: [react(), tailwindcss(), emitManifest()],
   define: {
     __API_ORIGIN__: JSON.stringify(API_ORIGIN),
   },
   build: {
-    outDir: "dist",
+    outDir: resolve(__dirname, "dist", PRODUCT),
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        popup: resolve(__dirname, "popup.html"),
-        background: resolve(__dirname, "src/background.ts"),
+        popup: resolve(PRODUCT_DIR, "popup.html"),
+        background: resolve(PRODUCT_DIR, "src/background.ts"),
       },
       output: {
         format: "es",

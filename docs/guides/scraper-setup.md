@@ -98,14 +98,58 @@ npm run seed:test      # wipe + reseed the isolated test DB (needs .env.test)
 guardrail (§12), drops the test DB's app collections, then reruns the standard
 seed — never touching dev or prod data.
 
+## 6. Extension build (P1 multi-product)
+
+`extension/` builds two independent MV3 extensions from shared code. Build the
+ScrapperNinja capture extension and load it unpacked:
+
+```bash
+npm run build:extension:scrapper   # -> extension/dist/scrapperninja/
+npm run build:extension:apply      # -> extension/dist/applyninja/  (ApplyNinjaa)
+npm run build:extension            # both
+```
+
+`PRODUCT` (`applyninja` | `scrapperninja`) selects the product; a missing/unknown
+value fails the build. `VITE_API_ORIGIN` (default `http://localhost:3000`) is
+compiled into the manifest and API client. Contract and the IIFE content-script
+constraint: `docs/architecture/scraping.md`; the extension README covers loading.
+
+Load and use the ScrapperNinja capture extension:
+
+```
+npm run build:extension:scrapper
+# chrome://extensions → Developer mode → Load unpacked:
+#   extension/dist/scrapperninja
+# Sign in to the dashboard first, then open the popup on Google Maps.
+```
+
+The popup gates on sign-in (it needs a Bearer token from the web app), so signing
+in to the dashboard **before** opening the popup is required. Then browse to
+Google Maps results and Start a capture; runs stream into `/leads` and each run
+appears under `/leads/sessions`.
+
+## 7. Admin: selector packs
+
+Selector packs are **platform-level** (no `organization_id`, like plans) and are
+edited by a super admin at **`/admin/source-packs`** — list packs, edit the
+selectors JSON, toggle `isActive`, add notes, and bump the version. The extension
+fetches active packs at capture start and caches them by version, so a Google DOM
+change is fixed by editing a pack here, not shipping a new build. The nav tab
+shows only when `features.scraper.enabled` and the viewer is a super admin.
+
 ## Later phases
 
 Phase 1 is the **foundation**: schema, Lead Directory UI, query/CSV layer, API
-routes, and demo seed. Still to come, each behind its own flag:
+routes, and demo seed.
 
-- **Phase 2 — capture.** The Chrome MV3 extension captures from Google Maps and
-  generic directories into `leads` (idempotent on `clientCaptureId`); the
-  generic extractor is `NEXT_PUBLIC_FEATURE_SCRAPER_GENERIC_EXTRACTOR`.
+- **Phase 2 — capture (built).** The Chrome MV3 extension (built above) captures
+  from Google Maps (fast/deep) and generic directories into `leads` (idempotent
+  on `clientCaptureId`), queuing offline in IndexedDB and syncing to
+  `/api/leads/ingest`. The generic extractor is
+  `NEXT_PUBLIC_FEATURE_SCRAPER_GENERIC_EXTRACTOR`. Adapter/queue/sync details:
+  `docs/architecture/scraping.md`.
+
+Still to come behind its own flag:
 - **Phase 3 — enrich & personalize.** Email/tech-stack crawl, scoring, and
   per-lead offer lines behind `NEXT_PUBLIC_FEATURE_SCRAPER_ENRICHMENT` /
   `_OFFER_LINES` (AI provider required then).

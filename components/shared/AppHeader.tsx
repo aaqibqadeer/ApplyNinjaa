@@ -44,6 +44,7 @@ export async function AppHeader({ session }: AppHeaderProps) {
       ? [
           { href: "/leads", label: "Leads" },
           { href: "/leads/campaigns", label: "Campaigns" },
+          { href: "/leads/sessions", label: "Sessions" },
         ]
       : []),
     ...(features.payments.enabled

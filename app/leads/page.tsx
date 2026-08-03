@@ -59,6 +59,12 @@ export default async function LeadsPage() {
               Campaigns
             </Link>
             <Link
+              href="/leads/sessions"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Sessions
+            </Link>
+            <Link
               href="/leads/settings"
               className="text-muted-foreground hover:text-foreground"
             >

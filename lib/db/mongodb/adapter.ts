@@ -30,6 +30,7 @@ import {
   newAdminActionSchema,
   newApplicationSchema,
   newCampaignSchema,
+  newCaptureSessionSchema,
   newGmailScanSchema,
   newInvitationSchema,
   newJobFilterSchema,
@@ -40,6 +41,7 @@ import {
   newPlanSchema,
   newProfileSchema,
   newSavedViewSchema,
+  newSourcePackSchema,
   newSubscriptionSchema,
   type AdminAction,
   type Application,
@@ -48,6 +50,7 @@ import {
   type ApplicationStatus,
   type AppSettings,
   type Campaign,
+  type CaptureSession,
   type GmailScan,
   type GmailScanProposal,
   type Invitation,
@@ -62,6 +65,7 @@ import {
   type NewAdminAction,
   type NewApplication,
   type NewCampaign,
+  type NewCaptureSession,
   type NewGmailScan,
   type NewInvitation,
   type NewJobFilter,
@@ -73,6 +77,7 @@ import {
   type NewPlan,
   type NewProfile,
   type NewSavedView,
+  type NewSourcePack,
   type NewSubscription,
   type NewUser,
   type Organization,
@@ -90,10 +95,12 @@ import {
   type ProfileProject,
   type SavedView,
   type SavedViewSort,
+  type SourcePack,
   type Subscription,
   type UpdateApplication,
   type UpdateAppSettings,
   type UpdateCampaign,
+  type UpdateCaptureSession,
   type UpdateGmailScan,
   type UpdateJobFilter,
   type UpdateLead,
@@ -102,6 +109,7 @@ import {
   type UpdatePlan,
   type UpdateProfile,
   type UpdateSavedView,
+  type UpdateSourcePack,
   type UpdateSubscription,
   type UpdateUser,
   type User,
@@ -408,6 +416,37 @@ interface LeadCustomFieldDoc {
   type: string;
   options: string[];
   sort_order: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Source packs are PLATFORM-level — no organization_id (§15).
+interface SourcePackDoc {
+  _id: mongoose.Types.ObjectId;
+  source_id: string;
+  version: number;
+  automation_tier: string;
+  selectors: Record<string, string>;
+  notes: string | null;
+  is_active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface CaptureSessionDoc {
+  _id: mongoose.Types.ObjectId;
+  organization_id: mongoose.Types.ObjectId;
+  campaign_id: mongoose.Types.ObjectId;
+  source_type: string;
+  source_url: string | null;
+  mode: string;
+  started_at: Date;
+  ended_at: Date | null;
+  captured_count: number;
+  needs_review_count: number;
+  status: string;
+  extension_version: string | null;
+  created_by_user_id: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -936,6 +975,52 @@ leadCustomFieldSchemaMongo.index(
   { unique: true },
 );
 
+// Source packs are PLATFORM-level — no organization_id (§15). One pack per
+// source id (unique), fetched by the extension filtered on is_active.
+const sourcePackSchemaMongo = new Schema<SourcePackDoc>(
+  {
+    source_id: { type: String, required: true, unique: true, index: true },
+    version: { type: Number, required: true, default: 1 },
+    automation_tier: { type: String, required: true },
+    selectors: { type: Schema.Types.Mixed, default: {} },
+    notes: { type: String, default: null },
+    is_active: { type: Boolean, required: true, default: true, index: true },
+  },
+  { timestamps: true, collection: "source_packs" },
+);
+
+const captureSessionSchemaMongo = new Schema<CaptureSessionDoc>(
+  {
+    organization_id: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+      index: true,
+    },
+    campaign_id: {
+      type: Schema.Types.ObjectId,
+      ref: "Campaign",
+      required: true,
+    },
+    source_type: { type: String, required: true },
+    source_url: { type: String, default: null },
+    mode: { type: String, required: true },
+    started_at: { type: Date, required: true },
+    ended_at: { type: Date, default: null },
+    captured_count: { type: Number, required: true, default: 0 },
+    needs_review_count: { type: Number, required: true, default: 0 },
+    status: { type: String, required: true, default: "running" },
+    extension_version: { type: String, default: null },
+    created_by_user_id: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true, collection: "capture_sessions" },
+);
+captureSessionSchemaMongo.index({ organization_id: 1, started_at: -1 });
+
 /** Reuse existing models across hot-reloads / repeated imports. */
 function model<T>(name: string, schema: Schema<T>): Model<T> {
   return (
@@ -992,6 +1077,14 @@ const SavedViewModel = model<SavedViewDoc>("SavedView", savedViewSchemaMongo);
 const LeadCustomFieldModel = model<LeadCustomFieldDoc>(
   "LeadCustomField",
   leadCustomFieldSchemaMongo,
+);
+const SourcePackModel = model<SourcePackDoc>(
+  "SourcePack",
+  sourcePackSchemaMongo,
+);
+const CaptureSessionModel = model<CaptureSessionDoc>(
+  "CaptureSession",
+  captureSessionSchemaMongo,
 );
 
 /* -- Mappers --------------------------------------------------------------- */
@@ -1328,6 +1421,40 @@ function toLeadCustomField(doc: LeadCustomFieldDoc): LeadCustomField {
     type: doc.type as LeadCustomField["type"],
     options: doc.options ?? [],
     sortOrder: doc.sort_order ?? 0,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
+function toSourcePack(doc: SourcePackDoc): SourcePack {
+  return {
+    id: doc._id.toString(),
+    sourceId: doc.source_id,
+    version: doc.version ?? 1,
+    automationTier: doc.automation_tier as SourcePack["automationTier"],
+    selectors: doc.selectors ?? {},
+    notes: doc.notes ?? null,
+    isActive: doc.is_active ?? true,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
+function toCaptureSession(doc: CaptureSessionDoc): CaptureSession {
+  return {
+    id: doc._id.toString(),
+    organizationId: doc.organization_id.toString(),
+    campaignId: doc.campaign_id.toString(),
+    sourceType: doc.source_type as CaptureSession["sourceType"],
+    sourceUrl: doc.source_url ?? null,
+    mode: doc.mode as CaptureSession["mode"],
+    startedAt: doc.started_at,
+    endedAt: doc.ended_at ?? null,
+    capturedCount: doc.captured_count ?? 0,
+    needsReviewCount: doc.needs_review_count ?? 0,
+    status: doc.status as CaptureSession["status"],
+    extensionVersion: doc.extension_version ?? null,
+    createdByUserId: doc.created_by_user_id.toString(),
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -2798,6 +2925,165 @@ export class MongoAdapter implements DatabaseAdapter {
       _id: id,
       organization_id: new mongoose.Types.ObjectId(orgId),
     }).exec();
+  }
+
+  /* -- Source packs (platform-level, no organization_id — §15) ------------- */
+
+  async listActiveSourcePacks(): Promise<SourcePack[]> {
+    await this.connect();
+    const docs = await SourcePackModel.find({ is_active: true })
+      .sort({ source_id: 1 })
+      .lean<SourcePackDoc[]>()
+      .exec();
+    return docs.map(toSourcePack);
+  }
+
+  async listSourcePacks(): Promise<SourcePack[]> {
+    await this.connect();
+    const docs = await SourcePackModel.find()
+      .sort({ source_id: 1 })
+      .lean<SourcePackDoc[]>()
+      .exec();
+    return docs.map(toSourcePack);
+  }
+
+  async getSourcePackById(id: string): Promise<SourcePack | null> {
+    await this.connect();
+    const doc = await SourcePackModel.findById(id)
+      .lean<SourcePackDoc>()
+      .exec();
+    return doc ? toSourcePack(doc) : null;
+  }
+
+  async getSourcePackBySourceId(sourceId: string): Promise<SourcePack | null> {
+    await this.connect();
+    const doc = await SourcePackModel.findOne({ source_id: sourceId })
+      .lean<SourcePackDoc>()
+      .exec();
+    return doc ? toSourcePack(doc) : null;
+  }
+
+  async createSourcePack(input: NewSourcePack): Promise<SourcePack> {
+    await this.connect();
+    const parsed = newSourcePackSchema.parse(input);
+    const created = await SourcePackModel.create({
+      source_id: parsed.sourceId,
+      version: parsed.version,
+      automation_tier: parsed.automationTier,
+      selectors: parsed.selectors,
+      notes: parsed.notes ?? null,
+      is_active: parsed.isActive,
+    });
+    return toSourcePack(created.toObject<SourcePackDoc>());
+  }
+
+  async updateSourcePack(
+    id: string,
+    patch: UpdateSourcePack,
+  ): Promise<SourcePack> {
+    await this.connect();
+    const update: Record<string, unknown> = {};
+    if (patch.version !== undefined) update.version = patch.version;
+    if (patch.automationTier !== undefined)
+      update.automation_tier = patch.automationTier;
+    if (patch.selectors !== undefined) update.selectors = patch.selectors;
+    if (patch.notes !== undefined) update.notes = patch.notes ?? null;
+    if (patch.isActive !== undefined) update.is_active = patch.isActive;
+    const doc = await SourcePackModel.findByIdAndUpdate(id, update, {
+      new: true,
+    })
+      .lean<SourcePackDoc>()
+      .exec();
+    if (!doc) throw new Error(`mongo updateSourcePack: pack ${id} not found`);
+    return toSourcePack(doc);
+  }
+
+  async deleteSourcePack(id: string): Promise<void> {
+    await this.connect();
+    await SourcePackModel.findByIdAndDelete(id).exec();
+  }
+
+  /* -- Capture sessions (scoped by organization_id) ------------------------ */
+
+  async createCaptureSession(
+    input: NewCaptureSession,
+  ): Promise<CaptureSession> {
+    await this.connect();
+    const parsed = newCaptureSessionSchema.parse(input);
+    const created = await CaptureSessionModel.create({
+      organization_id: new mongoose.Types.ObjectId(parsed.organizationId),
+      campaign_id: new mongoose.Types.ObjectId(parsed.campaignId),
+      source_type: parsed.sourceType,
+      source_url: parsed.sourceUrl ?? null,
+      mode: parsed.mode,
+      started_at: parsed.startedAt,
+      ended_at: parsed.endedAt ?? null,
+      captured_count: parsed.capturedCount,
+      needs_review_count: parsed.needsReviewCount,
+      status: parsed.status,
+      extension_version: parsed.extensionVersion ?? null,
+      created_by_user_id: new mongoose.Types.ObjectId(parsed.createdByUserId),
+    });
+    return toCaptureSession(created.toObject<CaptureSessionDoc>());
+  }
+
+  async getCaptureSession(
+    orgId: string,
+    id: string,
+  ): Promise<CaptureSession | null> {
+    await this.connect();
+    const doc = await CaptureSessionModel.findOne({
+      _id: id,
+      organization_id: new mongoose.Types.ObjectId(orgId),
+    })
+      .lean<CaptureSessionDoc>()
+      .exec();
+    return doc ? toCaptureSession(doc) : null;
+  }
+
+  async listCaptureSessions(orgId: string): Promise<CaptureSession[]> {
+    await this.connect();
+    const docs = await CaptureSessionModel.find({
+      organization_id: new mongoose.Types.ObjectId(orgId),
+    })
+      .sort({ started_at: -1 })
+      .lean<CaptureSessionDoc[]>()
+      .exec();
+    return docs.map(toCaptureSession);
+  }
+
+  async updateCaptureSession(
+    orgId: string,
+    id: string,
+    patch: UpdateCaptureSession,
+  ): Promise<CaptureSession> {
+    await this.connect();
+    const update: Record<string, unknown> = {};
+    if (patch.campaignId !== undefined)
+      update.campaign_id = new mongoose.Types.ObjectId(patch.campaignId);
+    if (patch.sourceType !== undefined) update.source_type = patch.sourceType;
+    if (patch.sourceUrl !== undefined) update.source_url = patch.sourceUrl ?? null;
+    if (patch.mode !== undefined) update.mode = patch.mode;
+    if (patch.startedAt !== undefined) update.started_at = patch.startedAt;
+    if (patch.endedAt !== undefined) update.ended_at = patch.endedAt ?? null;
+    if (patch.capturedCount !== undefined)
+      update.captured_count = patch.capturedCount;
+    if (patch.needsReviewCount !== undefined)
+      update.needs_review_count = patch.needsReviewCount;
+    if (patch.status !== undefined) update.status = patch.status;
+    if (patch.extensionVersion !== undefined)
+      update.extension_version = patch.extensionVersion ?? null;
+    const doc = await CaptureSessionModel.findOneAndUpdate(
+      { _id: id, organization_id: new mongoose.Types.ObjectId(orgId) },
+      update,
+      { new: true },
+    )
+      .lean<CaptureSessionDoc>()
+      .exec();
+    if (!doc) {
+      throw new Error(`mongo updateCaptureSession: session ${id} not found`);
+    }
+    return toCaptureSession(doc);
   }
 
   async disconnect(): Promise<void> {

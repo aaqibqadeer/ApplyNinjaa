@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Filter, Plus, Upload } from "lucide-react";
+import { Filter, Plus, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { CampaignPicker } from "@/components/leads/CampaignPicker";
@@ -200,6 +200,8 @@ export function LeadsTable({
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [needsReviewCount, setNeedsReviewCount] = useState(0);
+  const [rescuing, setRescuing] = useState(false);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<SavedViewPageSize>(25);
@@ -338,6 +340,23 @@ export function LeadsTable({
       cancelled = true;
     };
   }, [buildParams, nonce]);
+
+  // Track the size of the needs-review queue independently of the current
+  // filters, so the chip badge + Rescue button reflect the whole org.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      // `total` is what we need; pageSize is the smallest the schema allows
+      // (25/50/100/250) — the count is independent of the page window.
+      const res = await fetch("/api/leads?status=needs_review&pageSize=25");
+      if (cancelled || !res.ok) return;
+      const data = (await res.json().catch(() => ({}))) as { total?: number };
+      setNeedsReviewCount(data.total ?? 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [nonce]);
 
   useEffect(() => {
     void (async () => {
@@ -531,6 +550,53 @@ export function LeadsTable({
     const params = buildParams(false);
     params.set("columns", visibleColumns.join(","));
     window.location.href = `/api/leads/export?${params.toString()}`;
+  }
+
+  /** Drain the needs-review queue via AI rescue (up to 50 at a time). */
+  async function rescueRecords() {
+    setRescuing(true);
+    try {
+      const res = await fetch("/api/leads/rescue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 50 }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        attempted?: number;
+        rescued?: number;
+        capReached?: boolean;
+        code?: string;
+        error?: string;
+      };
+      if (res.status === 402 || data.code === "AI_CAP_REACHED") {
+        toast.error(
+          data.error ??
+            "You've reached your monthly AI limit — upgrade to rescue more records.",
+        );
+        return;
+      }
+      if (!res.ok) {
+        toast.error(data.error ?? "Could not rescue records");
+        return;
+      }
+      const rescued = data.rescued ?? 0;
+      if (rescued > 0) {
+        toast.success(
+          `Rescued ${rescued} record${rescued === 1 ? "" : "s"}${
+            data.capReached ? " (AI limit reached — some left for later)" : ""
+          }`,
+        );
+      } else if (data.capReached) {
+        toast.error(
+          "You've reached your monthly AI limit — upgrade to rescue more records.",
+        );
+      } else {
+        toast.info("No records could be rescued");
+      }
+      reload();
+    } finally {
+      setRescuing(false);
+    }
   }
 
   async function saveView(name: string) {
@@ -790,6 +856,18 @@ export function LeadsTable({
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {needsReviewCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void rescueRecords()}
+              disabled={rescuing}
+            >
+              <Sparkles aria-hidden="true" />
+              {rescuing ? "Rescuing…" : `Rescue ${needsReviewCount} record${needsReviewCount === 1 ? "" : "s"}`}
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -847,7 +925,9 @@ export function LeadsTable({
                 : "text-muted-foreground hover:bg-accent",
             )}
           >
-            {status}
+            {status === "needs_review" && needsReviewCount > 0
+              ? `${status} (${needsReviewCount})`
+              : status}
           </button>
         ))}
         <label className="text-muted-foreground ml-2 flex items-center gap-1.5 text-xs">

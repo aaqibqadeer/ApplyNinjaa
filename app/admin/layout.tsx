@@ -45,6 +45,7 @@ export default async function AdminLayout({
           isSuperAdmin={isSuperAdmin}
           isSupportAdmin={isSupportAdmin}
           paymentsEnabled={features.payments.enabled}
+          scraperEnabled={features.scraper.enabled}
         />
         <div>{children}</div>
       </div>

@@ -20,6 +20,10 @@ export const AI_CALL_KINDS = [
   // Combined filter-verdicts + fit-score popup analysis (one billable call).
   "job_analysis",
   "gmail_classify",
+  // ScrapperNinja: repair one flagged capture's rawSnippet (one call each).
+  "lead_rescue",
+  // ScrapperNinja: generic-adapter extraction of cleaned text blocks.
+  "scrape_extract",
 ] as const;
 export type AiCallKind = (typeof AI_CALL_KINDS)[number];
 

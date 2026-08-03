@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { LEAD_STATUSES, type Lead } from "@/lib/db/schema";
+import { LEAD_STATUSES, type Lead, type LeadSource } from "@/lib/db/schema";
 
 export interface LeadDetailDrawerProps {
   lead: Lead | null;
@@ -49,6 +49,7 @@ export function LeadDetailDrawer({
   const [status, setStatus] = useState<Lead["status"]>("new");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sources, setSources] = useState<LeadSource[] | null>(null);
 
   useEffect(() => {
     if (lead) {
@@ -56,6 +57,31 @@ export function LeadDetailDrawer({
       setNotes(lead.notes ?? "");
     }
   }, [lead]);
+
+  // Load the provenance rows whenever the drawer opens for a lead.
+  useEffect(() => {
+    if (!open || !lead) {
+      setSources(null);
+      return;
+    }
+    let cancelled = false;
+    const leadId = lead.id;
+    void (async () => {
+      const res = await fetch(`/api/leads/${leadId}/sources`);
+      if (cancelled) return;
+      if (res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          sources?: LeadSource[];
+        };
+        setSources(data.sources ?? []);
+      } else {
+        setSources([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, lead]);
 
   const dirty =
     lead !== null && (status !== lead.status || notes !== (lead.notes ?? ""));
@@ -183,6 +209,43 @@ export function LeadDetailDrawer({
               </Field>
               <Field label="Created">{formatDate(lead.createdAt)}</Field>
             </div>
+
+            {sources !== null && sources.length > 0 && (
+              <div className="mt-4">
+                <p className="text-muted-foreground mb-2 text-xs font-medium">
+                  All captures ({sources.length})
+                </p>
+                <ul className="flex flex-col gap-2">
+                  {sources.map((source) => (
+                    <li
+                      key={source.id}
+                      className="border-border rounded-md border px-3 py-2 text-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium">{source.sourceType}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {formatDate(source.capturedAt)}
+                        </span>
+                      </div>
+                      {source.sourceUrl ? (
+                        <a
+                          href={source.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary text-xs break-all hover:underline"
+                        >
+                          {source.sourceUrl}
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">
+                          No source URL
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </section>
 
           {lead.parseIssues.length > 0 && (

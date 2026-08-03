@@ -6,13 +6,13 @@
  * executeScript works without broad host permissions.
  */
 
-import { api } from "./lib/api";
+import { api } from "../../../shared/api";
+import type { MapFieldsResponse } from "../../../shared/types";
 import {
   describeActiveElement,
   fillFields,
   type CollectedField,
 } from "./lib/dom-actions";
-import type { MapFieldsResponse } from "./lib/types";
 
 const MENU_ID = "applyninjaa-fill-field";
 

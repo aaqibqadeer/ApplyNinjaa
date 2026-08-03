@@ -1134,3 +1134,99 @@ export const updateLeadCustomFieldSchema = newLeadCustomFieldSchema
   .omit({ organizationId: true })
   .partial();
 export type UpdateLeadCustomField = z.infer<typeof updateLeadCustomFieldSchema>;
+
+/* ========================================================================== */
+/* ScrapperNinja Phase 2 — source packs & capture sessions                    */
+/* ========================================================================== */
+
+/* -------------------------------------------------------------------------- */
+/* SourcePack (PLATFORM-LEVEL — no organizationId, like plans, §15)           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A server-pushed selector pack for one capture source (e.g. Google Maps). Like
+ * `plans`, this is a PLATFORM concern — the same DOM selectors serve every
+ * tenant's extension — so it carries NO `organization_id` (the deliberate §1.3
+ * exception, called out in CLAUDE.md §15). The extension fetches the active
+ * packs at each capture start and caches them by `version`, falling back to its
+ * bundled selectors when the fetch fails. `selectors` is a flat map of a logical
+ * field name (e.g. `name`, `phone`) to a CSS selector string.
+ */
+export const sourcePackSchema = z.object({
+  id: z.string(),
+  /** Stable machine id of the capture source, e.g. "google-maps". */
+  sourceId: z.string().min(1),
+  /** Bumped on every selector edit so the extension can cache-invalidate. */
+  version: z.number().int().nonnegative().default(1),
+  automationTier: automationTierSchema,
+  /** Logical field name → CSS selector. */
+  selectors: z.record(z.string(), z.string()).default({}),
+  notes: z.string().nullable().optional(),
+  isActive: z.boolean().default(true),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type SourcePack = z.infer<typeof sourcePackSchema>;
+
+export const newSourcePackSchema = sourcePackSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewSourcePack = z.infer<typeof newSourcePackSchema>;
+
+/** `sourceId` is the stable lookup key — create-only, never edited afterwards. */
+export const updateSourcePackSchema = newSourcePackSchema
+  .omit({ sourceId: true })
+  .partial();
+export type UpdateSourcePack = z.infer<typeof updateSourcePackSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* CaptureSession (tenant-scoped: one extension capture run)                  */
+/* -------------------------------------------------------------------------- */
+
+/** Capture fidelity — `fast` scrapes the list only; `deep` opens each result. */
+export const CAPTURE_MODES = ["fast", "deep"] as const;
+export const captureModeSchema = z.enum(CAPTURE_MODES);
+export type CaptureMode = z.infer<typeof captureModeSchema>;
+
+/** Lifecycle of a capture run. */
+export const CAPTURE_SESSION_STATUSES = [
+  "running",
+  "completed",
+  "failed",
+  "canceled",
+] as const;
+export const captureSessionStatusSchema = z.enum(CAPTURE_SESSION_STATUSES);
+export type CaptureSessionStatus = z.infer<typeof captureSessionStatusSchema>;
+
+export const captureSessionSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  campaignId: z.string(),
+  sourceType: leadSourceTypeSchema,
+  sourceUrl: z.string().nullable().optional(),
+  mode: captureModeSchema,
+  startedAt: z.coerce.date(),
+  endedAt: z.coerce.date().nullable().optional(),
+  capturedCount: z.number().int().nonnegative().default(0),
+  needsReviewCount: z.number().int().nonnegative().default(0),
+  status: captureSessionStatusSchema.default("running"),
+  extensionVersion: z.string().nullable().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type CaptureSession = z.infer<typeof captureSessionSchema>;
+
+export const newCaptureSessionSchema = captureSessionSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewCaptureSession = z.infer<typeof newCaptureSessionSchema>;
+
+export const updateCaptureSessionSchema = newCaptureSessionSchema
+  .omit({ organizationId: true, createdByUserId: true })
+  .partial();
+export type UpdateCaptureSession = z.infer<typeof updateCaptureSessionSchema>;

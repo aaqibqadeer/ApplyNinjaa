@@ -20,6 +20,7 @@ import type {
   ApplicationStatus,
   AppSettings,
   Campaign,
+  CaptureSession,
   GmailScan,
   Invitation,
   InvitationStatus,
@@ -30,6 +31,7 @@ import type {
   NewAdminAction,
   NewApplication,
   NewCampaign,
+  NewCaptureSession,
   NewGmailScan,
   NewInvitation,
   NewJobFilter,
@@ -41,6 +43,7 @@ import type {
   NewPlan,
   NewProfile,
   NewSavedView,
+  NewSourcePack,
   NewSubscription,
   NewUser,
   Organization,
@@ -50,10 +53,12 @@ import type {
   Profile,
   ProfileDomainPref,
   SavedView,
+  SourcePack,
   Subscription,
   UpdateApplication,
   UpdateAppSettings,
   UpdateCampaign,
+  UpdateCaptureSession,
   UpdateGmailScan,
   UpdateJobFilter,
   UpdateLead,
@@ -62,6 +67,7 @@ import type {
   UpdatePlan,
   UpdateProfile,
   UpdateSavedView,
+  UpdateSourcePack,
   UpdateSubscription,
   UpdateUser,
   User,
@@ -340,6 +346,29 @@ export interface DatabaseAdapter {
     patch: UpdateLeadCustomField,
   ): Promise<LeadCustomField>;
   deleteLeadCustomField(orgId: string, id: string): Promise<void>;
+
+  /* -- Source packs (PLATFORM-LEVEL — no organizationId, §15) ------------- */
+  /** Active packs only — what the extension fetches at capture start. */
+  listActiveSourcePacks(): Promise<SourcePack[]>;
+  /** All packs (admin view). */
+  listSourcePacks(): Promise<SourcePack[]>;
+  getSourcePackById(id: string): Promise<SourcePack | null>;
+  /** Stable-`sourceId` lookup — one pack per source (seed/admin uniqueness). */
+  getSourcePackBySourceId(sourceId: string): Promise<SourcePack | null>;
+  createSourcePack(input: NewSourcePack): Promise<SourcePack>;
+  updateSourcePack(id: string, patch: UpdateSourcePack): Promise<SourcePack>;
+  deleteSourcePack(id: string): Promise<void>;
+
+  /* -- Capture sessions (tenant-scoped by organizationId) ----------------- */
+  createCaptureSession(input: NewCaptureSession): Promise<CaptureSession>;
+  getCaptureSession(orgId: string, id: string): Promise<CaptureSession | null>;
+  /** All of an org's capture sessions, newest startedAt first. */
+  listCaptureSessions(orgId: string): Promise<CaptureSession[]>;
+  updateCaptureSession(
+    orgId: string,
+    id: string,
+    patch: UpdateCaptureSession,
+  ): Promise<CaptureSession>;
 
   /* -- Lifecycle ---------------------------------------------------------- */
   /** Close underlying connections (used by scripts like seed). Optional. */

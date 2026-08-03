@@ -10,8 +10,8 @@
  * monthly AI cap is reached — which is the entire point of having it.
  */
 
+import type { ProfileFillData } from "../../../../shared/types";
 import type { CollectedField } from "./dom-actions";
-import type { ProfileFillData } from "./types";
 
 export interface QuickFillResult {
   values: Array<{ id: string; value: string }>;

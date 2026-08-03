@@ -5,6 +5,79 @@
 > Recent phases stay here; older entries live in
 > [`decisions-archive.md`](./decisions-archive.md). Keep this file small.
 
+## 2026-08-03 — ScrapperNinja Phase 2 dashboard + admin UI
+
+Wired the capture pipeline into the web app (server APIs already existed). Calls
+a future agent shouldn't re-derive:
+
+- **Selector packs are edited from a platform admin page** (`/admin/source-packs`,
+  `SourcePacksManager`), gated `features.scraper.enabled && isSuperAdmin` — packs
+  are platform-level (no `organization_id`), like plans (§15). `AdminNav` gained a
+  `scraperEnabled` prop (passed from the layout) so the tab hides in ApplyNinjaa
+  forks. Selectors are edited as a JSON textarea, validated client-side to a flat
+  `Record<string,string>` before POST/PATCH.
+- **Needs-review count is fetched org-wide, not from the current filter:** the
+  `/leads` chip badge + "Rescue N records" button call
+  `GET /api/leads?status=needs_review&pageSize=1` and read `total`, refreshed on
+  every table reload (keyed on the same `nonce`). The Rescue button posts
+  `{ limit: 50 }`; **402 `AI_CAP_REACHED` is handled inline** as an upgrade toast
+  (never a thrown error), matching `capReached` in the 200 body.
+- **Tier-d enforcement stays server/worker-side** (see the client entry below);
+  the admin pack UI sets `automationTier` per pack but does not re-implement the
+  guard — the extension owns it.
+- **Lead provenance is a thin read route:** `GET /api/leads/[id]/sources` →
+  `listLeadSources` verifies the lead belongs to the org via `getLeadById` first,
+  then returns `listLeadSourcesForLead`. The drawer shows all `lead_sources` rows
+  in addition to the lead's primary source, so a future merged lead shows every
+  capture. Capture sessions render read-only (`/leads/sessions`) — no edit path.
+
+## 2026-08-02 — ScrapperNinja Phase 2 CLIENT side (multi-product extension + capture)
+
+Built the extension half (P1 multi-product layout + the ScrapperNinja capture
+extension). Calls a future agent shouldn't re-derive:
+
+- **Multi-product build via one `PRODUCT`-parameterised `vite.config.ts`** with
+  `root` set to `products/<product>/` so `popup.html` lands at the dist root.
+  Content scripts can't be ES modules and rollup can't mix formats, so
+  ScrapperNinja gets a **second IIFE pass** (`vite.content.config.ts`,
+  `emptyOutDir:false`) chained in `build.mjs`. `extension/shared/` holds code both
+  products import; ApplyNinjaa was `git mv`'d intact (behaviour unchanged).
+- **Root `build:extension` no longer installs** extension deps (it's now
+  `PRODUCT=… build`), so `ci.yml` gained an explicit `npm --prefix extension ci`
+  step — the extension is a separate package, not an npm workspace.
+- **Tier "d" is enforced in the service worker**, not just the popup: `handleStart`
+  refuses to run the capture loop on a tier-d adapter; the `manual` adapter also
+  returns `[]` from `harvestList`. Two independent guards for the same rule.
+- **Wire-contract alignment (verified against the server Zod schemas):** ingest
+  carries `sourceType`/`campaignId`/`sessionId` at the **batch** level (not per
+  record), `businessName` is required — so `sync.ts` groups by those three and
+  fills a `businessName` fallback (first snippet line) for generic/manual
+  records. Selector-pack `sourceId` is hyphenated ("google-maps") vs the
+  underscored source type, so the worker normalises `_`→`-` before matching.
+  Session terminal status is `canceled` (not "stopped").
+
+## 2026-08-02 — ScrapperNinja Phase 2 SERVER side (ingest, rescue, extract, packs)
+
+Built the server half of the capture extension (no extension UI touched — that's
+a separate, later slice). Notable calls a future agent shouldn't re-derive:
+
+- **`source_packs` is platform-level** (no `organization_id`), like `plans` —
+  selectors serve every tenant. Unique on `source_id` (one pack per source);
+  admin CRUD is **`authorizeApi({ superAdmin: true })`**, never `requireRole`.
+- **Task→provider routing** lives in `lib/ai/routing.ts` (`providerForTask`), all
+  8 pipeline tasks → DeepSeek today. It imports only `config/features` (never
+  `env.schema`) so the pure scrape modules + their vitest stay DB/env-free.
+- **Test-safety pattern:** `lib/scrape/generate.ts` imports the `ai()` accessor
+  **lazily** (`await import("@/lib/ai")`) so `parseRescueResponse` /
+  `pickBestRepeatedGroup` are unit-testable without loading `env.schema`.
+- **Inline rescue is best-effort:** ingest saves leads first, then rescues ≤25
+  flagged records; hitting the AI cap (`UsageLimitError`) or a bad snippet just
+  leaves the record in the review queue — it never fails the ingest.
+- **Campaign `lead_count`** bumps only for **newly-created** leads, so a re-synced
+  batch (idempotent upsert) never inflates it.
+- New `AiCallKind`s: `lead_rescue`, `scrape_extract`. Capture sessions auto-stamp
+  `ended_at` when PATCHed to a terminal status.
+
 ## 2026-08-01 — ScrapperNinja Phase 1 (foundation) + the 20 locked decisions
 
 Phase 1 built the schema, Lead Directory (`/leads`), query/service/CSV layer,
