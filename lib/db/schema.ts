@@ -941,6 +941,9 @@ export const leadSchema = z.object({
   capturedByUserId: z.string().nullable().optional(),
   /** Client-generated idempotency key for capture (unique per org, sparse). */
   clientCaptureId: z.string().nullable().optional(),
+  /** The `capture_sessions` run this lead was first captured in, when known.
+   * Powers the /leads?sessionId=… drill-down from the sessions table. */
+  captureSessionId: z.string().nullable().optional(),
   /* -- captured ------------------------------------------------------------ */
   businessName: z.string().min(1),
   category: z.string().nullable().optional(),
