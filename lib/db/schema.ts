@@ -1199,10 +1199,12 @@ export const CAPTURE_MODES = ["fast", "deep"] as const;
 export const captureModeSchema = z.enum(CAPTURE_MODES);
 export type CaptureMode = z.infer<typeof captureModeSchema>;
 
-/** Lifecycle of a capture run. */
+/** Lifecycle of a capture run. `stopped` = the user ended it midway (a normal,
+ * non-error stop); `canceled` is reserved for a true abort. */
 export const CAPTURE_SESSION_STATUSES = [
   "running",
   "completed",
+  "stopped",
   "failed",
   "canceled",
 ] as const;
