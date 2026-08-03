@@ -1,0 +1,12 @@
+Seed complete:
+  organization  6a6fd2784e89f1e8ae8ed8c0 (test-org)
+  admin user    6a6fd2784e89f1e8ae8ed8bc (admin@example.com)
+  regular user  6a6fd2784e89f1e8ae8ed8be (user@example.com)
+  super admin   admin@example.com
+  invitation    invitee@example.com → pending (test-org)
+  plans         Free (free), Starter (starter), Pro (pro), Premium (premium)
+  job filters   6 admin defaults
+  app settings  trialDays=7
+  demo leads    30 across 2 campaigns
+  saved views   2; custom fields 1
+  password for both: Password123!
