@@ -36,6 +36,7 @@ import {
   type NewInvitation,
   type NewLead,
   type NewLeadCustomField,
+  type NewOfferPrompt,
   type NewOrganization,
   type NewOrganizationMember,
   type NewPlan,
@@ -45,6 +46,7 @@ import {
   type WebsiteStatus,
 } from "@/lib/db";
 import { DEFAULT_VISIBLE_COLUMNS } from "@/lib/leads/columns";
+import { DEFAULT_SCORING_RUBRIC } from "@/lib/leads/score";
 
 /** Shared password for the seeded users — local testing only. */
 const SEED_PASSWORD = "Password123!";
@@ -887,6 +889,55 @@ async function seedSourcePacks(): Promise<void> {
 }
 
 /**
+ * Seed two starter offer-line prompts for `org` (Phase 3). Idempotent by name,
+ * and the first is marked `isDefault` (at most one default per org). Uses only
+ * the allowed `{{placeholders}}` so the prompt-save validation passes.
+ */
+async function seedOfferPrompts(
+  orgId: string,
+  createdByUserId: string,
+): Promise<void> {
+  const existing = await db.listOfferPrompts(orgId);
+  const byName = new Set(existing.map((p) => p.name));
+  const alreadyHasDefault = existing.some((p) => p.isDefault);
+
+  const prompts: NewOfferPrompt[] = [
+    {
+      organizationId: orgId,
+      name: "No-website opener",
+      promptText:
+        "Hi {{ownerName}}, I came across {{businessName}} ({{category}}) in {{city}} — " +
+        "with {{reviewCount}} reviews and a {{rating}}★ rating you clearly do great work, " +
+        "but I couldn't find a website. I help local {{category}} businesses get a simple, " +
+        "fast site that turns Google searches into calls — want me to send a quick mockup?",
+      isDefault: !alreadyHasDefault,
+      provider: null,
+      model: null,
+      createdByUserId,
+    },
+    {
+      organizationId: orgId,
+      name: "Website-refresh opener",
+      promptText:
+        "Hi {{ownerName}}, your team at {{businessName}} in {{city}} has earned a {{rating}}★ " +
+        "reputation, but {{website}} looks like it's due for a refresh (it's running {{techStack}}). " +
+        "I rebuild sites for {{category}} businesses so they load fast and book more jobs — " +
+        "happy to show you a before/after if you're open to it.",
+      isDefault: false,
+      provider: null,
+      model: null,
+      createdByUserId,
+    },
+  ];
+
+  for (const prompt of prompts) {
+    if (byName.has(prompt.name)) continue;
+    const created = await db.createOfferPrompt(prompt);
+    if (created.isDefault) await db.clearDefaultOfferPrompts(orgId, created.id);
+  }
+}
+
+/**
  * The full baseline + demo seed. Exported so `scripts/seed-test.ts` can reuse
  * the exact same routine after wiping the test database. Intentionally does NOT
  * disconnect — the caller owns the connection lifecycle (the CLI runner below
@@ -1100,7 +1151,15 @@ export async function runSeed(): Promise<void> {
   // Ensure the platform settings singleton exists. `trialDays` (default 7) is
   // the length of the local no-card trial started at email verification;
   // the legacy Stripe-checkout trial is disabled in lib/payments/checkout.ts.
-  const settings = await db.getAppSettings();
+  let settings = await db.getAppSettings();
+
+  // Default lead-scoring rubric (Phase 3). Only written when unset, so a super
+  // admin's tuned rubric is never clobbered on re-seed.
+  if (!settings.leadScoringRubric || !settings.leadScoringRubric.trim()) {
+    settings = await db.updateAppSettings({
+      leadScoringRubric: DEFAULT_SCORING_RUBRIC,
+    });
+  }
 
   // ScrapperNinja demo Lead Directory (idempotent). It is plain tenant data
   // behind the seeded org, so it is harmless in an ApplyNinjaa fork too — the
@@ -1108,6 +1167,7 @@ export async function runSeed(): Promise<void> {
   const demo = await seedDemoLeadDirectory(org, admin.id);
   await seedDemoCustomFields(org.id);
   await seedDemoSavedViews(org.id, admin.id);
+  await seedOfferPrompts(org.id, admin.id);
 
   // Platform-level selector packs (server-pushed selectors, §15). Idempotent.
   await seedSourcePacks();
@@ -1135,7 +1195,15 @@ export async function runSeed(): Promise<void> {
   );
   const filters = await db.listAdminJobFilters();
   console.log(`  job filters   ${filters.length} admin defaults`);
-  console.log(`  app settings  trialDays=${settings.trialDays}`);
+  console.log(
+    `  app settings  trialDays=${settings.trialDays}, leadScoringRubric ${
+      settings.leadScoringRubric ? "set" : "unset"
+    }`,
+  );
+  const offerPrompts = await db.listOfferPrompts(org.id);
+  console.log(
+    `  offer prompts ${offerPrompts.map((p) => p.name).join(", ") || "none"}`,
+  );
   const campaigns = await db.listCampaigns(org.id);
   const customFields = await db.listLeadCustomFields(org.id);
   const savedViews = await db.listSavedViews(org.id, admin.id);

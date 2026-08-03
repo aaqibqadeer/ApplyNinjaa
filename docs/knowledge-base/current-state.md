@@ -3,17 +3,18 @@
 > **Read this first, every session** (CLAUDE.md §11). Living **snapshot** —
 > overwritten, not appended. Keep it terse. Update at the end of every phase.
 
-_Last updated: 2026-08-03 — **ScrapperNinja Phase 3 UI** on
-`cursor/scrapperninja-phase3-ba86`, built **ahead of the Phase 3 backend**
-(owned by another agent): AI-pass jobs UI (`components/jobs/*` + a "Run AI pass"
-bulk action, a "Jobs" drawer, `JobProgress`), a `/leads/duplicates` merge/keep
-review page, a `/leads/prompts` offer-prompt CRUD + live preview, three new
-`/leads` preset chips (possible duplicates / not enriched / no offer line), and
-nav links. All API calls degrade gracefully (toast on 404/402) since the routes
-aren't live yet. Small server gaps fixed: `enrichmentStatus` column +
-`notEnriched`/`missingOfferLine` query params, `offerLineEditedAt` stamped on
-edit. typecheck + lint + `npm test` (68) pass. Prior: Phase 2 (server + client +
-dashboard/admin UI) on `cursor/scrapperninja-phase2-ba86`._
+_Last updated: 2026-08-03 — **ScrapperNinja Phase 3 SERVER/core** on
+`cursor/scrapperninja-phase3-ba86`: 3 new collections (`batch_jobs`,
+`offer_prompts`, `duplicate_candidates`) + `app_settings.lead_scoring_rubric`;
+pure libs (`lib/leads/{normalize,dedupe,merge-fields,render-prompt}`,
+`lib/enrich/{tech,robots,website-status}`) and AI libs
+(`lib/leads/{score,label,offer}`, address in `normalize`, `lib/enrich/crawl`); an
+in-process job runner (`lib/jobs/runner.ts` via `after()`) + 7 handlers; thin API
+routes `/api/jobs*`, `/api/prompts*` (+`/preview`), `/api/duplicates*`; seed adds
+the default rubric + 2 offer prompts. New vitest for
+normalize/dedupe/tech/render-prompt/merge. This lands the backend the Phase 3 UI
+(built earlier this branch: `components/jobs/*`, `/leads/duplicates`,
+`/leads/prompts`) was calling. typecheck + lint + `npm test` (107) pass._
 
 ## What this repo is
 
@@ -125,6 +126,32 @@ This fork's `.env` ships the **ScrapperNinja** set: `scraper` on,
   super-admin) CRUDs packs: edit selectors JSON, notes, version, `isActive`
   toggle, delete. `AdminNav` tab gated `scraper.enabled && isSuperAdmin`.
 
+## ScrapperNinja Phase 3 — server/core (this phase)
+
+- **3 collections + a setting** — `batch_jobs`, `offer_prompts`,
+  `duplicate_candidates` (all org-scoped) + `app_settings.lead_scoring_rubric`.
+  Zod schema + Mongo adapter (incl. `listLeadsByIds`, `repointLeadSources`) +
+  seed, same commit. Detail: `docs/architecture/data-layer.md`.
+- **Pipeline** (`docs/architecture/scraping.md`): `rescue → normalize → dedupe
+  (review) → enrich → label → score → offer`. Pure libs
+  `lib/leads/{normalize,dedupe,merge-fields,render-prompt}`,
+  `lib/enrich/{tech,robots,website-status}`; AI libs `lib/leads/{score,label,
+  offer}` + `normalizeAddress` + `lib/enrich/crawl` (crawl ≤3 pages, robots-aware,
+  optional PageSpeed via `PAGESPEED_API_KEY`, best-effort owner name).
+  `websiteStatus` is **rule-derived**, not AI.
+- **In-process runner** — `lib/jobs/runner.ts` creates the row and schedules work
+  with `after()` (no Redis); chunks of 25, cancel mid-run, `stale` after 10 min
+  idle + resume, AI quota per lead (402 up front + mid-run). Handlers in
+  `lib/jobs/handlers/*`. Dedupe writes candidates only — **never auto-merges**.
+- **APIs** — `POST/GET /api/jobs`, `GET /api/jobs/[id]`,
+  `POST /api/jobs/[id]/{cancel,resume}` (`estimateOnly` returns an AI-call
+  estimate); `GET/POST /api/prompts`, `PATCH/DELETE /api/prompts/[id]`,
+  `POST /api/prompts/preview`; `GET /api/duplicates`,
+  `POST /api/duplicates/[id]/{merge,dismiss}`. All gate `scraper.enabled`
+  (+`enrichment`/`offerLines` where relevant), `authorizeApi` + Zod. Merge body
+  `{ primaryId, fieldChoices: Record<field,'a'|'b'> }`. New `AiCallKind`s
+  `lead_{normalize,label,enrich,score,offer}`.
+
 ## Resolved choices (carried from ApplyNinjaa v1.1 — still true)
 
 - **DB: MongoDB only** (Supabase adapters deleted, §1.5). `multiTenant` off: org
@@ -142,7 +169,7 @@ This fork's `.env` ships the **ScrapperNinja** set: `scraper` on,
 ## Verification status
 
 - `npm run typecheck`, `npm run lint`, and `NEXT_PUBLIC_PRODUCT=scrapperninja
-  npm test` (68 tests) pass; both extension product builds
+  npm test` (107 tests) pass; both extension product builds
   (`build:extension:scrapper` / `:apply`) pass. `next build` passes with
   `SKIP_ENV_VALIDATION=1`.
 - **Runtime-verified this phase** against a local `mongod`: `npm run seed` writes
@@ -159,13 +186,12 @@ This fork's `.env` ships the **ScrapperNinja** set: `scraper` on,
   cards/detail, generic block detection) is **not exercised in a real browser**
   (no Chrome + live sites in this environment). Selectors are inherently fragile
   — that's what the server selector packs are for.
-- **Scraper Phase 3 backend not built here** — the **UI** exists (jobs,
-  duplicates, prompts) but `/api/jobs*`, `/api/prompts*`, `/api/duplicates*` and
-  `lib/jobs` are owned by another agent. Until they land the UI shows friendly
-  empty states / toasts on 404. `enrichment`/`offerLines` flags still wire no
-  server pass; `emails`/`techStack`/`score`/`offerLine` remain seed-only.
-- Dedupe **review UI** exists (`DuplicateReview`), but nothing detects dupes or
-  writes `merged_into_id` server-side yet.
-- `seed-test.ts` is now real, but there is still **no CI test gate** and no
-  ApplyNinjaa test coverage — the vitest suite covers scraper pure logic only.
+- **Scraper Phase 3 runtime unverified in a browser** — the server/core landed
+  this phase (runner, handlers, libs, APIs, seed) and typecheck/lint/`npm test`
+  are green, but the crawl/PageSpeed/DeepSeek passes were **not run against live
+  sites or a real DeepSeek key** here. The in-process runner (by design) does not
+  survive a server restart — stale jobs surface Resume. End-to-end UI↔API wiring
+  wasn't click-tested (no seeded jobs run in a browser this phase).
+- `seed-test.ts` is real and CI runs the vitest suite, but there is still no
+  ApplyNinjaa test coverage — the suite covers scraper pure logic only.
 - Analytics deliberately absent (phase 2); Gmail scan synchronous (≤50 msgs).
