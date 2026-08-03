@@ -111,10 +111,31 @@ npm run build:extension            # both
 
 `PRODUCT` (`applyninja` | `scrapperninja`) selects the product; a missing/unknown
 value fails the build. `VITE_API_ORIGIN` (default `http://localhost:3000`) is
-compiled into the manifest and API client. Then `chrome://extensions` →
-Developer mode → **Load unpacked** → `extension/dist/scrapperninja`. Contract and
-the IIFE content-script constraint: `docs/architecture/scraping.md`; the extension
-README covers loading.
+compiled into the manifest and API client. Contract and the IIFE content-script
+constraint: `docs/architecture/scraping.md`; the extension README covers loading.
+
+Load and use the ScrapperNinja capture extension:
+
+```
+npm run build:extension:scrapper
+# chrome://extensions → Developer mode → Load unpacked:
+#   extension/dist/scrapperninja
+# Sign in to the dashboard first, then open the popup on Google Maps.
+```
+
+The popup gates on sign-in (it needs a Bearer token from the web app), so signing
+in to the dashboard **before** opening the popup is required. Then browse to
+Google Maps results and Start a capture; runs stream into `/leads` and each run
+appears under `/leads/sessions`.
+
+## 7. Admin: selector packs
+
+Selector packs are **platform-level** (no `organization_id`, like plans) and are
+edited by a super admin at **`/admin/source-packs`** — list packs, edit the
+selectors JSON, toggle `isActive`, add notes, and bump the version. The extension
+fetches active packs at capture start and caches them by version, so a Google DOM
+change is fixed by editing a pack here, not shipping a new build. The nav tab
+shows only when `features.scraper.enabled` and the viewer is a super admin.
 
 ## Later phases
 

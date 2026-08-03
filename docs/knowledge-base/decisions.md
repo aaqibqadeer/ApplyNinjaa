@@ -5,6 +5,32 @@
 > Recent phases stay here; older entries live in
 > [`decisions-archive.md`](./decisions-archive.md). Keep this file small.
 
+## 2026-08-03 — ScrapperNinja Phase 2 dashboard + admin UI
+
+Wired the capture pipeline into the web app (server APIs already existed). Calls
+a future agent shouldn't re-derive:
+
+- **Selector packs are edited from a platform admin page** (`/admin/source-packs`,
+  `SourcePacksManager`), gated `features.scraper.enabled && isSuperAdmin` — packs
+  are platform-level (no `organization_id`), like plans (§15). `AdminNav` gained a
+  `scraperEnabled` prop (passed from the layout) so the tab hides in ApplyNinjaa
+  forks. Selectors are edited as a JSON textarea, validated client-side to a flat
+  `Record<string,string>` before POST/PATCH.
+- **Needs-review count is fetched org-wide, not from the current filter:** the
+  `/leads` chip badge + "Rescue N records" button call
+  `GET /api/leads?status=needs_review&pageSize=1` and read `total`, refreshed on
+  every table reload (keyed on the same `nonce`). The Rescue button posts
+  `{ limit: 50 }`; **402 `AI_CAP_REACHED` is handled inline** as an upgrade toast
+  (never a thrown error), matching `capReached` in the 200 body.
+- **Tier-d enforcement stays server/worker-side** (see the client entry below);
+  the admin pack UI sets `automationTier` per pack but does not re-implement the
+  guard — the extension owns it.
+- **Lead provenance is a thin read route:** `GET /api/leads/[id]/sources` →
+  `listLeadSources` verifies the lead belongs to the org via `getLeadById` first,
+  then returns `listLeadSourcesForLead`. The drawer shows all `lead_sources` rows
+  in addition to the lead's primary source, so a future merged lead shows every
+  capture. Capture sessions render read-only (`/leads/sessions`) — no edit path.
+
 ## 2026-08-02 — ScrapperNinja Phase 2 CLIENT side (multi-product extension + capture)
 
 Built the extension half (P1 multi-product layout + the ScrapperNinja capture

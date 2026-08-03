@@ -9,6 +9,7 @@ export interface AdminNavProps {
   isSuperAdmin: boolean;
   isSupportAdmin: boolean;
   paymentsEnabled: boolean;
+  scraperEnabled: boolean;
 }
 
 /**
@@ -20,6 +21,7 @@ export function AdminNav({
   isSuperAdmin,
   isSupportAdmin,
   paymentsEnabled,
+  scraperEnabled,
 }: AdminNavProps) {
   const pathname = usePathname();
   const staff = isSuperAdmin || isSupportAdmin;
@@ -33,6 +35,11 @@ export function AdminNav({
       show: staff && paymentsEnabled,
     },
     { href: "/admin/plans", label: "Plans", show: isSuperAdmin },
+    {
+      href: "/admin/source-packs",
+      label: "Source packs",
+      show: isSuperAdmin && scraperEnabled,
+    },
     { href: "/admin/filters", label: "Filters", show: isSuperAdmin },
     { href: "/admin/audit", label: "Audit log", show: isSuperAdmin },
     { href: "/admin/settings", label: "Settings", show: isSuperAdmin },

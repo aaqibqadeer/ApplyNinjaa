@@ -97,6 +97,7 @@ Feature-scoped (§9.4): reusable within the admin panel, gated behind
 | `PlanManager`        | `components/admin/PlanManager.tsx`        | Plan table with active toggle, edit, delete (super-admin).           | `plans`, `annualBilling`, `paymentsEnabled`                    | `app/admin/plans/page.tsx`         |
 | `PlanFormDialog`     | `components/admin/PlanFormDialog.tsx`     | Create/edit-plan dialog form; price change mints a new Stripe Price. | `trigger`, `plan?`, `annualBilling`                            | `PlanManager`                      |
 | `SubscriptionsTable` | `components/admin/SubscriptionsTable.tsx` | Cross-org subscriptions with cancel + refund (confirm dialogs).      | `rows`                                                         | `app/admin/subscriptions/page.tsx` |
+| `SourcePacksManager` | `components/admin/SourcePacksManager.tsx` | Selector-pack CRUD (super-admin, scraper): list, edit selectors JSON, notes, version, `isActive` toggle, delete. Platform-level. | `packs`                                                       | `app/admin/source-packs/page.tsx` |
 
 ## `/components/auth` — auth feature components (Phase 3)
 
@@ -147,10 +148,11 @@ Feature-scoped to the Lead Directory (`scraper` flag). All are `'use client'`
 
 | Component            | Location                                    | Purpose                                                                                                                                         |
 | -------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LeadsTable`         | `components/leads/LeadsTable.tsx`           | The Lead Directory: server-filtered/sorted/paginated table with column show/hide, saved-view load/save, inline status edits, and CSV export.    |
-| `LeadDetailDrawer`   | `components/leads/LeadDetailDrawer.tsx`     | Side drawer for one lead: full field view, inline edits, parse-issue review, and persist via PATCH `/api/leads/:id`.                             |
+| `LeadsTable`         | `components/leads/LeadsTable.tsx`           | The Lead Directory: server-filtered/sorted/paginated table with column show/hide, saved-view load/save, inline status edits, CSV export, a live `needs_review` count chip, and a **"Rescue N records"** action (POST `/api/leads/rescue`). |
+| `LeadDetailDrawer`   | `components/leads/LeadDetailDrawer.tsx`     | Side drawer for one lead: full field view, inline edits, parse-issue review, and a Provenance section listing every `lead_sources` row (GET `/api/leads/:id/sources`); persists via PATCH `/api/leads/:id`.                             |
 | `CampaignPicker`     | `components/leads/CampaignPicker.tsx`       | Pick-or-quick-create campaign selector used when assigning leads.                                                                                |
 | `CampaignsManager`   | `components/leads/CampaignsManager.tsx`     | Campaigns list with inline create, archive/reactivate, and delete (full lifecycle; the picker owns quick-create only).                          |
+| `CaptureSessionsTable` | `components/leads/CaptureSessionsTable.tsx` | Read-only capture-session history (GET `/api/capture-sessions`): startedAt, source, mode, captured/needs-review counts, status, endedAt. Built on shared `DataTable`. Used in `app/leads/sessions/page.tsx`. |
 | `CustomFieldManager` | `components/leads/CustomFieldManager.tsx`   | Org-level custom-column CRUD (key/label/type/options) backing `leads.custom_fields`.                                                             |
 
 ## `extension/` — multi-product Chrome extensions (P1)

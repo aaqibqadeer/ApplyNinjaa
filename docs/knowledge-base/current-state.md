@@ -3,14 +3,15 @@
 > **Read this first, every session** (CLAUDE.md §11). Living **snapshot** —
 > overwritten, not appended. Keep it terse. Update at the end of every phase.
 
-_Last updated: 2026-08-02 — **ScrapperNinja Phase 2 complete (server + client)**
-on `cursor/scrapperninja-phase2-ba86`. Server: capture ingest + parse-rescue +
-generic extract APIs, server-pushed selector packs, capture sessions (typecheck
-+ lint + `npm test` (68) pass; ingest/rescue/session/pack round-trip
-runtime-verified against local Mongo). Client: the multi-product Chrome
-extension (P1) + the ScrapperNinja capture extension — content-script adapters,
-IndexedDB queue, sync, popup, tier enforcement. Both product builds pass; the
-extension's wire payloads were validated against the server Zod schemas._
+_Last updated: 2026-08-03 — **ScrapperNinja Phase 2 complete (server + client +
+dashboard/admin UI)** on `cursor/scrapperninja-phase2-ba86`. Server: capture
+ingest + parse-rescue + generic extract APIs, server-pushed selector packs,
+capture sessions. Client: the multi-product Chrome extension (P1) + the
+ScrapperNinja capture extension. **This slice** wired the pipeline into the web
+app: a `needs_review` count chip + "Rescue N records" action on `/leads`, lead
+provenance in the detail drawer (`GET /api/leads/[id]/sources`), a read-only
+`/leads/sessions` history, and a super-admin `/admin/source-packs` CRUD.
+typecheck + lint + `npm test` (68) pass; both extension product builds pass._
 
 ## What this repo is
 
@@ -106,6 +107,22 @@ This fork's `.env` ships the **ScrapperNinja** set: `scraper` on,
   by version; bundled `google-maps/selectors.ts` is the fallback. Pack keys +
   `sourceId` "google-maps" match the seeded pack. Docs: `architecture/scraping.md`.
 
+## ScrapperNinja Phase 2 — dashboard + admin UI (this slice)
+
+- **`/leads` rescue** — the `needs_review` status chip shows a live org-wide
+  count (`GET /api/leads?status=needs_review&pageSize=1` → `total`); a "Rescue N
+  records" toolbar button posts `/api/leads/rescue` (`{ limit: 50 }`), toasts the
+  result, reloads, and handles 402 `AI_CAP_REACHED` as an upgrade prompt.
+- **Lead provenance** — `GET /api/leads/[id]/sources` (thin route →
+  `listLeadSources`, org-verified via `getLeadById`); `LeadDetailDrawer` lists
+  every `lead_sources` row under Provenance alongside the primary source.
+- **Capture sessions** — `/leads/sessions` (`CaptureSessionsTable`, read-only)
+  lists each run from `GET /api/capture-sessions`. Linked from `/leads`, the
+  Campaigns page header, and `AppHeader`.
+- **Source-pack admin** — `/admin/source-packs` (`SourcePacksManager`,
+  super-admin) CRUDs packs: edit selectors JSON, notes, version, `isActive`
+  toggle, delete. `AdminNav` tab gated `scraper.enabled && isSuperAdmin`.
+
 ## Resolved choices (carried from ApplyNinjaa v1.1 — still true)
 
 - **DB: MongoDB only** (Supabase adapters deleted, §1.5). `multiTenant` off: org
@@ -123,7 +140,9 @@ This fork's `.env` ships the **ScrapperNinja** set: `scraper` on,
 ## Verification status
 
 - `npm run typecheck`, `npm run lint`, and `NEXT_PUBLIC_PRODUCT=scrapperninja
-  npm test` (55 tests) pass. `next build` passes with `SKIP_ENV_VALIDATION=1`.
+  npm test` (68 tests) pass; both extension product builds
+  (`build:extension:scrapper` / `:apply`) pass. `next build` passes with
+  `SKIP_ENV_VALIDATION=1`.
 - **Runtime-verified this phase** against a local `mongod`: `npm run seed` writes
   the demo Lead Directory and is idempotent on re-run (30 leads / 2 campaigns /
   2 views / 1 custom field, no dupes). `/leads` renders the seeded data.

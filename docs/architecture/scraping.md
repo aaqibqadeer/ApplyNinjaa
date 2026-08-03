@@ -113,3 +113,38 @@ The extension calls these paths; the server routes are implemented separately:
 - `GET /api/scrape/selectors` — active selector packs.
 - `POST /api/capture-sessions`, `PATCH /api/capture-sessions/[id]` — session
   lifecycle (mode, counts, status, extension version).
+
+## Ingest → rescue pipeline (parse repair)
+
+Capture is best-effort: a card that scrolled half-rendered arrives with
+`parseIssues[]` set and its `rawSnippet` kept. Those land as `needs_review`.
+Repair is a DeepSeek pass (`lib/scrape/rescue.ts`, `parseRescueResponse` is the
+pure, unit-tested core) that re-extracts `businessName`/`phone`/`website`/
+`address` from the snippet and clears the flags.
+
+- **Inline at ingest:** up to `INLINE_RESCUE_CAP = 25` flagged records per batch
+  are rescued during ingest (locked decision — see `decisions.md`). Hitting the
+  monthly AI cap stops rescuing but never fails the ingest — the leads are
+  already saved.
+- **On demand:** `POST /api/leads/rescue` (`{}` or `{ limit }`) drains the
+  needs-review queue for the org, or repairs explicit `ids`. Returns
+  `{ ok, attempted, rescued, capReached }`. Every repair consumes one AI-quota
+  call; the cap returns HTTP 402 `AI_CAP_REACHED`.
+
+## Dashboard surfaces (Phase 2 client)
+
+The web app exposes the capture pipeline to operators:
+
+- **`/leads`** — the needs-review status chip shows a live count
+  (`needs_review (12)`) and a **"Rescue N records"** toolbar button posts to
+  `/api/leads/rescue` (limit 50), toasts the result, and reloads. 402 is handled
+  as an upgrade prompt.
+- **Lead detail drawer** — the Provenance section lists every `lead_sources`
+  row (`GET /api/leads/[id]/sources`: sourceType, sourceUrl, capturedAt) in
+  addition to the lead's primary source, so a merged lead shows all its captures.
+- **`/leads/sessions`** — read-only capture-session history
+  (`GET /api/capture-sessions`): startedAt, sourceType, sourceUrl, mode,
+  capturedCount, needsReviewCount, status, endedAt.
+- **`/admin/source-packs`** — super-admin CRUD for selector packs (list, edit
+  selectors JSON, toggle `isActive`, notes, bump version). Platform-level, gated
+  on `features.scraper.enabled && isSuperAdmin`.
