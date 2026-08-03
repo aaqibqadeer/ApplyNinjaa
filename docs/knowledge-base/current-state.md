@@ -156,8 +156,8 @@ This fork's `.env` ships the **ScrapperNinja** set: `scraper` on,
 
 - **DB: MongoDB only** (Supabase adapters deleted, §1.5). `multiTenant` off: org
   ≡ user via one silent default org; org stays the billing entity.
-- **AI: DeepSeek** (`lib/ai/deepseek`, OpenAI-compatible); tasks in
-  `lib/ai/tasks.ts`. Scraper enrichment/offer-lines (Phase 3) will use it.
+- **AI: DeepSeek** (`lib/ai/deepseek`, OpenAI-compatible); ApplyNinjaa tasks in
+  `lib/ai/tasks.ts`, scraper tasks via `lib/ai/routing.ts` + `lib/scrape/generate.ts`.
 - **Auth**: custom-JWT + LinkedIn OAuth + email verification; extension Bearer
   path (`/api/auth/extension-token`).
 - **Payments**: Stripe; Free/Starter/Pro/Premium plans by stable slug with
