@@ -3,15 +3,17 @@
 > **Read this first, every session** (CLAUDE.md §11). Living **snapshot** —
 > overwritten, not appended. Keep it terse. Update at the end of every phase.
 
-_Last updated: 2026-08-03 — **ScrapperNinja Phase 2 complete (server + client +
-dashboard/admin UI)** on `cursor/scrapperninja-phase2-ba86`. Server: capture
-ingest + parse-rescue + generic extract APIs, server-pushed selector packs,
-capture sessions. Client: the multi-product Chrome extension (P1) + the
-ScrapperNinja capture extension. **This slice** wired the pipeline into the web
-app: a `needs_review` count chip + "Rescue N records" action on `/leads`, lead
-provenance in the detail drawer (`GET /api/leads/[id]/sources`), a read-only
-`/leads/sessions` history, and a super-admin `/admin/source-packs` CRUD.
-typecheck + lint + `npm test` (68) pass; both extension product builds pass._
+_Last updated: 2026-08-03 — **ScrapperNinja Phase 3 UI** on
+`cursor/scrapperninja-phase3-ba86`, built **ahead of the Phase 3 backend**
+(owned by another agent): AI-pass jobs UI (`components/jobs/*` + a "Run AI pass"
+bulk action, a "Jobs" drawer, `JobProgress`), a `/leads/duplicates` merge/keep
+review page, a `/leads/prompts` offer-prompt CRUD + live preview, three new
+`/leads` preset chips (possible duplicates / not enriched / no offer line), and
+nav links. All API calls degrade gracefully (toast on 404/402) since the routes
+aren't live yet. Small server gaps fixed: `enrichmentStatus` column +
+`notEnriched`/`missingOfferLine` query params, `offerLineEditedAt` stamped on
+edit. typecheck + lint + `npm test` (68) pass. Prior: Phase 2 (server + client +
+dashboard/admin UI) on `cursor/scrapperninja-phase2-ba86`._
 
 ## What this repo is
 
@@ -157,10 +159,13 @@ This fork's `.env` ships the **ScrapperNinja** set: `scraper` on,
   cards/detail, generic block detection) is **not exercised in a real browser**
   (no Chrome + live sites in this environment). Selectors are inherently fragile
   — that's what the server selector packs are for.
-- **Scraper Phase 3 (enrich/score/offer-lines)** — `enrichment`/`offerLines`
-  flags exist but wire nothing yet; schema fields (`emails`, `techStack`,
-  `score`, `offerLine`) are seed-only for now.
-- No dedupe/merge UI; `merged_into_id` exists but nothing writes it.
+- **Scraper Phase 3 backend not built here** — the **UI** exists (jobs,
+  duplicates, prompts) but `/api/jobs*`, `/api/prompts*`, `/api/duplicates*` and
+  `lib/jobs` are owned by another agent. Until they land the UI shows friendly
+  empty states / toasts on 404. `enrichment`/`offerLines` flags still wire no
+  server pass; `emails`/`techStack`/`score`/`offerLine` remain seed-only.
+- Dedupe **review UI** exists (`DuplicateReview`), but nothing detects dupes or
+  writes `merged_into_id` server-side yet.
 - `seed-test.ts` is now real, but there is still **no CI test gate** and no
   ApplyNinjaa test coverage — the vitest suite covers scraper pure logic only.
 - Analytics deliberately absent (phase 2); Gmail scan synchronous (≤50 msgs).

@@ -44,6 +44,10 @@ export async function AppHeader({ session }: AppHeaderProps) {
       ? [
           { href: "/leads", label: "Leads" },
           { href: "/leads/campaigns", label: "Campaigns" },
+          { href: "/leads/duplicates", label: "Duplicates" },
+          ...(features.scraper.offerLines
+            ? [{ href: "/leads/prompts", label: "Prompts" }]
+            : []),
           { href: "/leads/sessions", label: "Sessions" },
         ]
       : []),

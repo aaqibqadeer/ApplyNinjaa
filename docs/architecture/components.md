@@ -154,6 +154,22 @@ Feature-scoped to the Lead Directory (`scraper` flag). All are `'use client'`
 | `CampaignsManager`   | `components/leads/CampaignsManager.tsx`     | Campaigns list with inline create, archive/reactivate, and delete (full lifecycle; the picker owns quick-create only).                          |
 | `CaptureSessionsTable` | `components/leads/CaptureSessionsTable.tsx` | Read-only capture-session history (GET `/api/capture-sessions`): startedAt, source, mode, captured/needs-review counts, status, endedAt. Built on shared `DataTable`. Used in `app/leads/sessions/page.tsx`. |
 | `CustomFieldManager` | `components/leads/CustomFieldManager.tsx`   | Org-level custom-column CRUD (key/label/type/options) backing `leads.custom_fields`.                                                             |
+| `DuplicateReview`    | `components/leads/DuplicateReview.tsx`      | Phase 3 duplicate-candidate queue: side-by-side lead A/B compare with a per-field radio to pick the surviving value + a primary selector; Merge (POST `/api/duplicates/:id/merge`) or "Keep both" (POST `/api/duplicates/:id/dismiss`). Degrades gracefully on 404. Used in `app/leads/duplicates`. |
+| `OfferPromptsManager`| `components/leads/OfferPromptsManager.tsx`  | Phase 3 offer-prompt CRUD (`/api/prompts*`) with a live preview against a real recent lead (POST `/api/prompts/preview`). Used in `app/leads/prompts`. |
+
+## `/components/jobs` — AI-pass jobs (Phase 3)
+
+Feature-scoped to the async AI-pass jobs (normalize/dedupe/label/enrich/score/
+offer/rescue) that run over a lead selection. All `'use client'`. Backend
+`/api/jobs*` routes are owned separately; the fetch wrappers in
+`components/jobs/api.ts` + client types in `components/jobs/types.ts` degrade
+gracefully (status-carrying results, toast on 404/402) until they land.
+
+| Component        | Location                          | Purpose                                                                                                                                                                     |
+| ---------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JobProgress`    | `components/jobs/JobProgress.tsx`  | Compact progress card for one job: type, status badge, processed/total bar, succeeded/failed counts, Cancel while active, and Resume when a running job is stale (>10m old, no recent `updatedAt`). Self-polls `GET /api/jobs/:id` every 2s while queued/running (opt out via `selfPoll={false}` when a parent polls). |
+| `JobsPanel`      | `components/jobs/JobsPanel.tsx`    | Recent jobs for the org (active first), each a `JobProgress`. Polls the list while any job is active. Meant to sit inside the shared `DetailDrawer` (the `/leads` "Jobs" button).                                                                                          |
+| `RunAiPassDialog`| `components/jobs/RunAiPassDialog.tsx` | Launch dialog: pick a job type, see an estimated AI-call count (server `estimateOnly` when available, else a client-side guess), confirm. `offer` reveals prompt/variants(1\|3)/skip-edited; flag-gated types (`enrich`, `offer`) render disabled.                       |
 
 ## `extension/` — multi-product Chrome extensions (P1)
 

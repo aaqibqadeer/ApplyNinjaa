@@ -303,7 +303,13 @@ export async function updateLead(
   const orgId = requireOrg(session);
   const existing = await db.getLeadById(orgId, id);
   if (!existing) throw new ScraperError("Lead not found", 404);
-  return db.updateLead(orgId, id, patch);
+  // A user editing the offer line marks it hand-edited so the offer AI pass can
+  // skip it (skipEdited) and never clobber a human's copy.
+  const writes: LeadPatch & { offerLineEditedAt?: Date } = { ...patch };
+  if (patch.offerLine !== undefined && patch.offerLine !== existing.offerLine) {
+    writes.offerLineEditedAt = new Date();
+  }
+  return db.updateLead(orgId, id, writes);
 }
 
 export async function deleteLead(session: Session, id: string): Promise<void> {
