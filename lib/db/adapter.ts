@@ -19,8 +19,10 @@ import type {
   Application,
   ApplicationStatus,
   AppSettings,
+  BatchJob,
   Campaign,
   CaptureSession,
+  DuplicateCandidate,
   GmailScan,
   Invitation,
   InvitationStatus,
@@ -30,14 +32,17 @@ import type {
   LeadSource,
   NewAdminAction,
   NewApplication,
+  NewBatchJob,
   NewCampaign,
   NewCaptureSession,
+  NewDuplicateCandidate,
   NewGmailScan,
   NewInvitation,
   NewJobFilter,
   NewLead,
   NewLeadCustomField,
   NewLeadSource,
+  NewOfferPrompt,
   NewOrganization,
   NewOrganizationMember,
   NewPlan,
@@ -46,6 +51,7 @@ import type {
   NewSourcePack,
   NewSubscription,
   NewUser,
+  OfferPrompt,
   Organization,
   OrganizationMember,
   OrgRole,
@@ -57,12 +63,15 @@ import type {
   Subscription,
   UpdateApplication,
   UpdateAppSettings,
+  UpdateBatchJob,
   UpdateCampaign,
   UpdateCaptureSession,
+  UpdateDuplicateCandidate,
   UpdateGmailScan,
   UpdateJobFilter,
   UpdateLead,
   UpdateLeadCustomField,
+  UpdateOfferPrompt,
   UpdateOrganization,
   UpdatePlan,
   UpdateProfile,
@@ -306,9 +315,22 @@ export interface DatabaseAdapter {
     sort?: Record<string, 1 | -1>,
   ): AsyncGenerator<Lead>;
 
+  /** Fetch several leads by id in one call (org-scoped, non-deleted). Used by
+   * the dedupe/merge flows to resolve a candidate pair or a job's `leadIds`. */
+  listLeadsByIds(orgId: string, ids: string[]): Promise<Lead[]>;
+
   /* -- Lead sources (tenant-scoped raw provenance) ------------------------ */
   createLeadSource(input: NewLeadSource): Promise<LeadSource>;
   listLeadSourcesForLead(orgId: string, leadId: string): Promise<LeadSource[]>;
+  /**
+   * Repoint every provenance row from one lead to another (merge). Returns the
+   * number of rows moved. Org-scoped so a merge can never touch another tenant.
+   */
+  repointLeadSources(
+    orgId: string,
+    fromLeadId: string,
+    toLeadId: string,
+  ): Promise<number>;
 
   /* -- Campaigns (tenant-scoped by organizationId) ------------------------ */
   createCampaign(input: NewCampaign): Promise<Campaign>;
@@ -369,6 +391,57 @@ export interface DatabaseAdapter {
     id: string,
     patch: UpdateCaptureSession,
   ): Promise<CaptureSession>;
+
+  /* -- Batch jobs (tenant-scoped, in-process AI/enrichment passes) --------- */
+  createBatchJob(input: NewBatchJob): Promise<BatchJob>;
+  getBatchJob(orgId: string, id: string): Promise<BatchJob | null>;
+  /** An org's jobs, newest first (optionally capped by `limit`). */
+  listBatchJobs(orgId: string, limit?: number): Promise<BatchJob[]>;
+  updateBatchJob(
+    orgId: string,
+    id: string,
+    patch: UpdateBatchJob,
+  ): Promise<BatchJob>;
+
+  /* -- Offer prompts (tenant-scoped cold-email templates) ------------------ */
+  createOfferPrompt(input: NewOfferPrompt): Promise<OfferPrompt>;
+  getOfferPrompt(orgId: string, id: string): Promise<OfferPrompt | null>;
+  listOfferPrompts(orgId: string): Promise<OfferPrompt[]>;
+  updateOfferPrompt(
+    orgId: string,
+    id: string,
+    patch: UpdateOfferPrompt,
+  ): Promise<OfferPrompt>;
+  deleteOfferPrompt(orgId: string, id: string): Promise<void>;
+  /** Clear the `isDefault` flag on every other prompt in the org (single
+   * default invariant, enforced in the service before setting a new default). */
+  clearDefaultOfferPrompts(orgId: string, exceptId?: string): Promise<void>;
+
+  /* -- Duplicate candidates (tenant-scoped dedupe review queue) ------------ */
+  createDuplicateCandidate(
+    input: NewDuplicateCandidate,
+  ): Promise<DuplicateCandidate>;
+  getDuplicateCandidate(
+    orgId: string,
+    id: string,
+  ): Promise<DuplicateCandidate | null>;
+  /** An org's candidates, optionally filtered by status, newest first. */
+  listDuplicateCandidates(
+    orgId: string,
+    status?: string,
+  ): Promise<DuplicateCandidate[]>;
+  /** Whether a candidate for this unordered pair already exists (idempotent
+   * dedupe re-runs never insert the same pair twice). */
+  getDuplicateCandidateForPair(
+    orgId: string,
+    leadAId: string,
+    leadBId: string,
+  ): Promise<DuplicateCandidate | null>;
+  updateDuplicateCandidate(
+    orgId: string,
+    id: string,
+    patch: UpdateDuplicateCandidate,
+  ): Promise<DuplicateCandidate>;
 
   /* -- Lifecycle ---------------------------------------------------------- */
   /** Close underlying connections (used by scripts like seed). Optional. */

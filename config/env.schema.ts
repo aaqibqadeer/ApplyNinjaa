@@ -103,6 +103,13 @@ const baseSchema = z.object({
   ANTHROPIC_API_KEY: optionalString,
   OPENAI_API_KEY: optionalString,
   DEEPSEEK_API_KEY: optionalString,
+  /**
+   * Google PageSpeed Insights API key (ScrapperNinja enrichment, Phase 3).
+   * OPTIONAL and gated by NO flag: an absent key simply leaves the pageSpeed
+   * fields blank and must never fail env validation or a job. Never add a
+   * required-when rule for it.
+   */
+  PAGESPEED_API_KEY: optionalString,
   // Optional preferred default provider when several are enabled. Unlocks no
   // secret, so it has no required-when rule; falls back to the first enabled.
   AI_DEFAULT_PROVIDER: z.enum(["anthropic", "openai", "deepseek"]).optional(),

@@ -24,6 +24,12 @@ export const AI_CALL_KINDS = [
   "lead_rescue",
   // ScrapperNinja: generic-adapter extraction of cleaned text blocks.
   "scrape_extract",
+  // ScrapperNinja Phase 3 batch passes (one billable call per lead each).
+  "lead_normalize",
+  "lead_label",
+  "lead_enrich",
+  "lead_score",
+  "lead_offer",
 ] as const;
 export type AiCallKind = (typeof AI_CALL_KINDS)[number];
 
