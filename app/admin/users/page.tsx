@@ -1,4 +1,4 @@
-import { MemberList, type MemberRow } from "@/components/org/MemberList";
+import { AdminUsersTable } from "@/components/admin/AdminUsersTable";
 import {
   Card,
   CardContent,
@@ -6,44 +6,29 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { requireRole } from "@/lib/auth/roles";
-import { db } from "@/lib/db";
+import { requirePlatformStaff } from "@/lib/auth/roles";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Users in the active org, with role management (org admin). Reuses the existing
- * `MemberList` + `/api/org/members/*` routes. In single-tenant there's only the
- * admin themselves (self-row is locked), so this stays coherent regardless of
- * the `multiTenant` flag.
+ * Platform user management (product spec §9): search/view all users with
+ * plan tier and month-to-date AI usage. Support admins can view; suspend/
+ * ban/reactivate and the deletion trigger are super-admin-only (enforced in
+ * the routes, not just hidden here).
  */
 export default async function AdminUsersPage() {
-  const session = await requireRole("admin");
-  const orgId = session.organizationId;
-
-  const memberships = orgId ? await db.listMembers(orgId) : [];
-  const members: MemberRow[] = await Promise.all(
-    memberships.map(async (m) => {
-      const user = await db.getUserById(m.userId);
-      return {
-        userId: m.userId,
-        email: user?.email ?? "(unknown)",
-        name: user?.name ?? null,
-        role: m.role,
-      };
-    }),
-  );
+  const session = await requirePlatformStaff();
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Users</CardTitle>
         <CardDescription>
-          People with access to this organization, and their roles.
+          Every account on the platform — plan, usage, and account status.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <MemberList members={members} currentUserId={session.user.id} />
+        <AdminUsersTable isSuperAdmin={session.user.isSuperAdmin} />
       </CardContent>
     </Card>
   );

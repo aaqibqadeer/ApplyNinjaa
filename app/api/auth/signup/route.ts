@@ -4,6 +4,7 @@ import { z } from "zod";
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { DEFAULT_AUTHED_PATH } from "@/lib/auth/constants";
+import { sendVerificationEmail } from "@/lib/auth/verification";
 
 const schema = z.object({
   email: z.email(),
@@ -23,7 +24,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
   try {
-    await auth.signUp(parsed.data);
+    const session = await auth.signUp(parsed.data);
+    // Non-blocking nicety: signup succeeds even if the email provider is down;
+    // the user can re-request from the verify banner.
+    try {
+      await sendVerificationEmail(session.user);
+    } catch (emailError) {
+      console.error("signup: verification email failed", emailError);
+    }
     return NextResponse.json({ ok: true, redirect: DEFAULT_AUTHED_PATH });
   } catch (error) {
     return NextResponse.json(

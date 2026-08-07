@@ -24,7 +24,10 @@ Documentation index for the ninjakit boilerplate.
 ## guides/ — setup & usage walkthroughs
 
 - `getting-started.md` — clone → configure → seed → run. **Start here.**
-- `deployment.md` — ship a fork to production.
+- `production-roadmap.md` — **ApplyNinjaa's** path to launch: pre-launch
+  blockers, Railway + Atlas setup, CI, extension releases.
+- `testing-guide.md` — the 66-case manual QA pass (there is no automated suite).
+- `deployment.md` — generic template deployment notes.
 - `choosing-database.md` — Supabase vs MongoDB.
 - `auth-setup.md` · `multi-tenancy.md` · `payments-setup.md` ·
   `storage-phone-email.md` · `ai-providers.md` — per-feature setup.

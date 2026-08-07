@@ -6,12 +6,11 @@
  *
  * Validation is CONDITIONAL: a provider's secret is only required when the thing
  * that uses it is active. Feature secrets are gated by their flag (enabling
- * `payments` requires `STRIPE_SECRET_KEY`); database secrets are gated by
- * `DB_PROVIDER` (choosing `supabase` requires the Supabase vars, `mongodb`
- * requires `MONGODB_URI`). On a missing required var the app throws at boot with
- * a message listing exactly which vars are missing and why.
+ * `payments` requires `STRIPE_SECRET_KEY`). On a missing required var the app
+ * throws at boot with a message listing exactly which vars are missing and why.
  *
  * `DB_PROVIDER` is CORE (§2) and always required — the database is not optional.
+ * This fork resolved it to MongoDB (§1.5); the Supabase adapter was removed.
  */
 
 import { z } from "zod";
@@ -50,12 +49,8 @@ const baseSchema = z.object({
   // Resend in the custom (MongoDB) flow. Optional; defaults to Resend's sandbox.
   AUTH_EMAIL_FROM: optionalString,
 
-  // Database — CORE. DB_PROVIDER is always required; connection vars are
-  // required conditionally on which provider is chosen (see rules below).
-  DB_PROVIDER: z.enum(["supabase", "mongodb"]),
-  SUPABASE_URL: optionalString,
-  SUPABASE_ANON_KEY: optionalString,
-  SUPABASE_SERVICE_ROLE_KEY: optionalString,
+  // Database — CORE. This fork is MongoDB-only (§1.5).
+  DB_PROVIDER: z.enum(["mongodb"]),
   MONGODB_URI: optionalString,
 
   // Auth
@@ -67,6 +62,13 @@ const baseSchema = z.object({
   GOOGLE_CLIENT_SECRET: optionalString,
   GITHUB_CLIENT_ID: optionalString,
   GITHUB_CLIENT_SECRET: optionalString,
+  LINKEDIN_CLIENT_ID: optionalString,
+  LINKEDIN_CLIENT_SECRET: optionalString,
+
+  // Field-level encryption key for sensitive profile data (EEO fields) and
+  // stored Gmail refresh tokens — base64-encoded 32 bytes
+  // (`openssl rand -base64 32`). Losing it makes that data unrecoverable.
+  EEO_ENCRYPTION_KEY: optionalString,
 
   // Email (used by magic-link delivery)
   RESEND_API_KEY: optionalString,
@@ -93,9 +95,10 @@ const baseSchema = z.object({
   // AI providers
   ANTHROPIC_API_KEY: optionalString,
   OPENAI_API_KEY: optionalString,
+  DEEPSEEK_API_KEY: optionalString,
   // Optional preferred default provider when several are enabled. Unlocks no
   // secret, so it has no required-when rule; falls back to the first enabled.
-  AI_DEFAULT_PROVIDER: z.enum(["anthropic", "openai"]).optional(),
+  AI_DEFAULT_PROVIDER: z.enum(["anthropic", "openai", "deepseek"]).optional(),
 });
 
 type BaseEnv = z.infer<typeof baseSchema>;
@@ -113,21 +116,6 @@ interface RequirementRule {
 function requirementRules(value: BaseEnv): RequirementRule[] {
   return [
     // Database (gated by DB_PROVIDER)
-    {
-      when: value.DB_PROVIDER === "supabase",
-      key: "SUPABASE_URL",
-      reason: "DB_PROVIDER is 'supabase'",
-    },
-    {
-      when: value.DB_PROVIDER === "supabase",
-      key: "SUPABASE_ANON_KEY",
-      reason: "DB_PROVIDER is 'supabase'",
-    },
-    {
-      when: value.DB_PROVIDER === "supabase",
-      key: "SUPABASE_SERVICE_ROLE_KEY",
-      reason: "DB_PROVIDER is 'supabase' (server-side adapter)",
-    },
     {
       when: value.DB_PROVIDER === "mongodb",
       key: "MONGODB_URI",
@@ -161,9 +149,45 @@ function requirementRules(value: BaseEnv): RequirementRule[] {
       reason: "auth.oauth.github is on",
     },
     {
+      when: features.auth.oauth.linkedin,
+      key: "LINKEDIN_CLIENT_ID",
+      reason: "auth.oauth.linkedin is on",
+    },
+    {
+      when: features.auth.oauth.linkedin,
+      key: "LINKEDIN_CLIENT_SECRET",
+      reason: "auth.oauth.linkedin is on",
+    },
+    // Magic link is the ONLY way in for that method, so the key is mandatory.
+    // Email+password deliberately does NOT require it: verification/reset
+    // links fall back to the server console (lib/email/send.ts), which is how
+    // local testing works without an email provider.
+    {
       when: features.auth.magicLink,
       key: "RESEND_API_KEY",
       reason: "auth.magicLink is on (email delivery)",
+    },
+
+    // Field-level encryption — required whenever any auth method is on, since
+    // signed-in users can store encrypted EEO profile data.
+    {
+      when: isAnyAuthEnabled,
+      key: "EEO_ENCRYPTION_KEY",
+      reason: "an auth method is enabled (encrypted profile fields)",
+    },
+
+    // Gmail integration reuses the Google OAuth client for its own read-only
+    // consent flow — the client credentials are required even if Google login
+    // itself is off.
+    {
+      when: features.gmail,
+      key: "GOOGLE_CLIENT_ID",
+      reason: "gmail is on",
+    },
+    {
+      when: features.gmail,
+      key: "GOOGLE_CLIENT_SECRET",
+      reason: "gmail is on",
     },
 
     // Payments (annualBilling is a UI/data cadence flag — unlocks no new secret)
@@ -239,6 +263,11 @@ function requirementRules(value: BaseEnv): RequirementRule[] {
       key: "OPENAI_API_KEY",
       reason: "aiProviders includes 'openai'",
     },
+    {
+      when: features.aiProviders.includes("deepseek"),
+      key: "DEEPSEEK_API_KEY",
+      reason: "aiProviders includes 'deepseek'",
+    },
   ];
 }
 
@@ -272,7 +301,7 @@ function parseEnv(): Env {
       NEXT_PUBLIC_APP_URL:
         process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
       DB_PROVIDER:
-        (process.env.DB_PROVIDER as Env["DB_PROVIDER"]) ?? "supabase",
+        (process.env.DB_PROVIDER as Env["DB_PROVIDER"]) ?? "mongodb",
     } as Env;
   }
 
@@ -294,17 +323,16 @@ export const env: Env = parseEnv();
 /**
  * Test-environment guardrail (CLAUDE.md §12).
  *
- * When TEST_MODE is on, the resolved database target (Supabase URL or Mongo URI)
- * must match `TEST_DB_PATTERN` (default: /test/i). If it doesn't, refuse to
- * start — a deliberate speed bump against pointing a destructive test/seed run
- * at a non-test database. Tune the allow-list per fork via `TEST_DB_PATTERN`
- * (e.g. a Supabase project-ref prefix or a `-test` Mongo cluster suffix).
+ * When TEST_MODE is on, the resolved database target (Mongo URI) must match
+ * `TEST_DB_PATTERN` (default: /test/i). If it doesn't, refuse to start — a
+ * deliberate speed bump against pointing a destructive test/seed run at a
+ * non-test database. Tune the allow-list per fork via `TEST_DB_PATTERN`
+ * (e.g. a `-test` Mongo cluster suffix).
  */
 export function assertTestEnvironmentSafety(): void {
   if (!env.TEST_MODE) return;
 
-  const target =
-    (env.DB_PROVIDER === "mongodb" ? env.MONGODB_URI : env.SUPABASE_URL) ?? "";
+  const target = env.MONGODB_URI ?? "";
   const matchesTestPattern = new RegExp(env.TEST_DB_PATTERN, "i").test(target);
 
   if (!matchesTestPattern) {

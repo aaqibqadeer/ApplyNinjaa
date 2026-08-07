@@ -9,6 +9,11 @@ export interface AuthUser {
   name: string | null;
   /** Platform-level super-admin flag (§14) — independent of any org role. */
   isSuperAdmin: boolean;
+  /** Platform-level support-admin flag — limited admin tier, never merged
+   * with isSuperAdmin checks. */
+  isSupportAdmin: boolean;
+  /** Whether the user has verified their email address. */
+  emailVerified: boolean;
 }
 
 export interface Session {
@@ -23,7 +28,7 @@ export interface Session {
   role: string | null;
 }
 
-export type OAuthProvider = "google" | "github";
+export type OAuthProvider = "google" | "github" | "linkedin";
 
 export interface SignUpInput {
   email: string;

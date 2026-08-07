@@ -16,7 +16,15 @@ const eslintConfig = [
   // that would fight Prettier. No custom rule overrides at this stage (CLAUDE.md §6).
   ...compat.extends("next/core-web-vitals", "next/typescript", "prettier"),
   {
-    ignores: [".next/**", "out/**", "build/**", "next-env.d.ts"],
+    // `extension/dist` is the extension's minified Vite output; its source is
+    // linted by the extension workspace's own tooling.
+    ignores: [
+      ".next/**",
+      "out/**",
+      "build/**",
+      "next-env.d.ts",
+      "extension/dist/**",
+    ],
   },
 ];
 

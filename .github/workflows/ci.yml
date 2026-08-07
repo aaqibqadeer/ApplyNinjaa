@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master, staging]
+
+# A new push to the same branch makes the previous run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # `npm run format:check` is deliberately NOT a gate: the repo has never
+      # been fully Prettier-clean (44 files differ today), so adding it would
+      # make CI red on arrival. CLAUDE.md §6 names lint + typecheck as the
+      # gates. To adopt it, run `npm run format` once, commit that on its own,
+      # then add the step here.
+
+      # No database or third-party credentials exist in CI, and none are
+      # needed to prove the app compiles. SKIP_ENV_VALIDATION bypasses the
+      # Zod boot guard in config/env.schema.ts for exactly this reason — it
+      # is a build/CI-only escape hatch and must never be set at runtime.
+      - name: Build
+        run: npm run build
+        env:
+          SKIP_ENV_VALIDATION: "1"
+          NEXT_PUBLIC_APP_URL: https://example.com
+
+      - name: Build extension
+        run: npm run build:extension

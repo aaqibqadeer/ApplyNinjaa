@@ -33,9 +33,19 @@ const STATUS_VARIANT: Record<string, BadgeProps["variant"]> = {
   incomplete: "secondary",
 };
 
-/** Cross-org subscription list with cancel + refund (super-admin, §15). */
-export function SubscriptionsTable({ rows }: { rows: SubscriptionRow[] }) {
+interface SubscriptionsTableProps {
+  rows: SubscriptionRow[];
+  /** Cancel is super-admin-only; support admins see refunds only. */
+  isSuperAdmin: boolean;
+}
+
+/** Cross-user subscription list with refund (staff) + cancel (super-admin). */
+export function SubscriptionsTable({
+  rows,
+  isSuperAdmin,
+}: SubscriptionsTableProps) {
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [reasons, setReasons] = useState<Record<string, string>>({});
 
   function amountFor(row: SubscriptionRow): string {
     return (
@@ -51,6 +61,7 @@ export function SubscriptionsTable({ rows }: { rows: SubscriptionRow[] }) {
       body: JSON.stringify({
         subscriptionId: row.id,
         stripeSubscriptionId: row.stripeSubscriptionId,
+        reason: reasons[`cancel-${row.id}`] ?? "",
       }),
     });
     const data = (await res.json()) as { error?: string };
@@ -66,12 +77,31 @@ export function SubscriptionsTable({ rows }: { rows: SubscriptionRow[] }) {
     const res = await fetch("/api/admin/subscriptions/refund", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chargeId: row.chargeId, amount }),
+      body: JSON.stringify({
+        chargeId: row.chargeId,
+        amount,
+        reason: reasons[`refund-${row.id}`] ?? "",
+      }),
     });
     const data = (await res.json()) as { error?: string };
     if (!res.ok) throw new Error(data.error ?? "Could not refund");
     toast.success("Refund issued");
     window.location.reload();
+  }
+
+  function reasonInput(key: string) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={`reason-${key}`}>Reason (required, audited)</Label>
+        <Input
+          id={`reason-${key}`}
+          value={reasons[key] ?? ""}
+          onChange={(e) =>
+            setReasons((prev) => ({ ...prev, [key]: e.target.value }))
+          }
+        />
+      </div>
+    );
   }
 
   const columns: DataTableColumn<SubscriptionRow>[] = [
@@ -101,23 +131,27 @@ export function SubscriptionsTable({ rows }: { rows: SubscriptionRow[] }) {
       className: "text-right",
       cell: (r) => (
         <div className="flex justify-end gap-1">
-          <ConfirmDialog
-            destructive
-            title="Cancel subscription"
-            description={`Cancel ${r.orgName}'s "${r.planName}" subscription? This ends their access.`}
-            confirmLabel="Cancel subscription"
-            cancelLabel="Keep it"
-            onConfirm={() => cancel(r)}
-            trigger={
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={r.status === "canceled"}
-              >
-                Cancel
-              </Button>
-            }
-          />
+          {isSuperAdmin && (
+            <ConfirmDialog
+              destructive
+              title="Cancel subscription"
+              description={`Cancel ${r.orgName}'s "${r.planName}" subscription? They drop to Free at period end.`}
+              confirmLabel="Cancel subscription"
+              cancelLabel="Keep it"
+              onConfirm={() => cancel(r)}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={r.status === "canceled"}
+                >
+                  Cancel
+                </Button>
+              }
+            >
+              {reasonInput(`cancel-${r.id}`)}
+            </ConfirmDialog>
+          )}
           {r.chargeId ? (
             <ConfirmDialog
               destructive
@@ -131,18 +165,24 @@ export function SubscriptionsTable({ rows }: { rows: SubscriptionRow[] }) {
                 </Button>
               }
             >
-              <div className="flex flex-col gap-2">
-                <Label htmlFor={`refund-${r.id}`}>Amount ($)</Label>
-                <Input
-                  id={`refund-${r.id}`}
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={amountFor(r)}
-                  onChange={(e) =>
-                    setAmounts((prev) => ({ ...prev, [r.id]: e.target.value }))
-                  }
-                />
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor={`refund-${r.id}`}>Amount ($)</Label>
+                  <Input
+                    id={`refund-${r.id}`}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={amountFor(r)}
+                    onChange={(e) =>
+                      setAmounts((prev) => ({
+                        ...prev,
+                        [r.id]: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                {reasonInput(`refund-${r.id}`)}
               </div>
             </ConfirmDialog>
           ) : (

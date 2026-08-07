@@ -9,23 +9,13 @@
  * removes the unused adapter folder and its case here.
  */
 
-import { env } from "@/config/env.schema";
-
 import type { DatabaseAdapter } from "./adapter";
 import { MongoAdapter } from "./mongodb/adapter";
-import { SupabaseAdapter } from "./supabase/adapter";
 
+// This fork resolved the provider choice to MongoDB (§1.5) — the Supabase
+// adapter folder and its case here were removed.
 function createAdapter(): DatabaseAdapter {
-  switch (env.DB_PROVIDER) {
-    case "supabase":
-      return new SupabaseAdapter();
-    case "mongodb":
-      return new MongoAdapter();
-    default: {
-      const exhaustive: never = env.DB_PROVIDER;
-      throw new Error(`Unsupported DB_PROVIDER: ${String(exhaustive)}`);
-    }
-  }
+  return new MongoAdapter();
 }
 
 /**

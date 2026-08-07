@@ -20,12 +20,17 @@ export const ACTIVE_ORG_COOKIE = "ninjakit_active_org";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 export const RESET_TOKEN_TTL_SECONDS = 60 * 60; // 1 hour
 export const MAGIC_LINK_TTL_SECONDS = 60 * 15; // 15 minutes
+export const EMAIL_VERIFY_TTL_SECONDS = 60 * 60 * 24; // 24 hours
+/** Long-lived bearer token held by the Chrome extension (chrome.storage). */
+export const EXTENSION_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 /** Signed-token purposes so a token minted for one flow can't be used in another. */
 export const TOKEN_PURPOSE = {
   session: "session",
   passwordReset: "password_reset",
   magicLink: "magic_link",
+  emailVerify: "email_verify",
+  extension: "extension",
 } as const;
 export type TokenPurpose = (typeof TOKEN_PURPOSE)[keyof typeof TOKEN_PURPOSE];
 

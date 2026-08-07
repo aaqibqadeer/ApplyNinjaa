@@ -13,4 +13,5 @@ import type { AiProvider } from "@/config/features";
 export const DEFAULT_MODELS: Record<AiProvider, string> = {
   anthropic: "claude-opus-4-8",
   openai: "gpt-4o",
+  deepseek: "deepseek-chat",
 };

@@ -22,6 +22,11 @@ const PUBLIC_PATHS = [
   "/signup",
   "/reset-password",
   "/forgot-password",
+  // Legal pages must be readable without an account (linked from the footer
+  // and the cookie banner).
+  "/privacy",
+  "/terms",
+  "/cookie-policy",
 ];
 
 function isPublicPath(pathname: string): boolean {
@@ -32,6 +37,13 @@ function isPublicPath(pathname: string): boolean {
   // Stripe webhooks are authenticated by signature, not a session cookie — they
   // must bypass the login redirect (Phase 5).
   if (pathname === "/api/payments/webhook") return true;
+  // One-click unsubscribe links must work without a session (CAN-SPAM).
+  if (pathname === "/api/email/unsubscribe") return true;
+  // Extension traffic authenticates with a Bearer token, not the cookie — pass
+  // it through so the handler's authorizeApi() returns 401 JSON instead of the
+  // middleware 307-ing to /login (same precedent as the Stripe webhook).
+  if (pathname.startsWith("/api/extension")) return true;
+  if (pathname.startsWith("/api/ai")) return true;
   return PUBLIC_PATHS.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
@@ -42,6 +54,15 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
   if (isPublicPath(pathname)) return response;
+
+  // Bearer-authenticated API traffic (Chrome extension) skips the login
+  // redirect — every handler still enforces auth itself via authorizeApi().
+  if (
+    pathname.startsWith("/api/") &&
+    request.headers.get("authorization")?.toLowerCase().startsWith("bearer ")
+  ) {
+    return response;
+  }
 
   if (!isAuthenticated) {
     const loginUrl = request.nextUrl.clone();

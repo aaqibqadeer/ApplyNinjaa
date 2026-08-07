@@ -22,11 +22,14 @@ import { auth } from "@/lib/auth";
 import {
   db,
   INVITATION_STATUSES,
+  JOB_FILTER_TYPES,
   ORG_ROLES,
+  PLAN_SLUGS,
   type Invitation,
   type NewInvitation,
   type NewOrganization,
   type NewOrganizationMember,
+  type NewPlan,
   type Organization,
 } from "@/lib/db";
 
@@ -118,45 +121,167 @@ async function main(): Promise<void> {
     expiresAt: new Date(Date.now() + INVITE_TTL_MS),
   });
 
-  // Platform pricing plans (§15). Placeholders only — count and names are just
-  // data (super admin edits them in the admin panel); nothing in app logic
-  // hardcodes them. Prices are integer minor units (cents). Seeded only when no
-  // plans exist yet, so re-runs don't duplicate them.
-  const existingPlans = await db.listPlans();
-  if (existingPlans.length === 0) {
-    await db.createPlan({
-      name: "Starter",
-      description: "For trying things out.",
-      priceMonthly: 0,
-      priceAnnual: 0,
-      annualDiscountPercent: null,
-      limits: { seats: 1, projects: 1, apiAccess: false },
-      isActive: true,
-      sortOrder: 0,
-    });
-    await db.createPlan({
-      name: "Pro",
-      description: "For growing teams.",
-      priceMonthly: 2900,
-      priceAnnual: 29000,
-      annualDiscountPercent: 17,
-      limits: { seats: 5, projects: 10, apiAccess: true },
-      isActive: true,
-      sortOrder: 1,
-    });
-    await db.createPlan({
-      name: "Enterprise",
-      description: "For organizations at scale.",
-      priceMonthly: 9900,
-      priceAnnual: 99000,
-      annualDiscountPercent: 17,
-      limits: { seats: -1, projects: -1, apiAccess: true, sso: true },
-      isActive: true,
-      sortOrder: 2,
-    });
+  // Seeded local users are treated as email-verified so credential login and
+  // trial logic behave like a real verified account.
+  for (const seeded of [admin, member]) {
+    const record = await db.getUserById(seeded.id);
+    if (record && !record.emailVerifiedAt) {
+      await db.updateUser(seeded.id, { emailVerifiedAt: new Date() });
+    }
   }
 
-  // Ensure the platform settings singleton exists (default trialDays).
+  // Platform pricing plans (§15). Prices/names/caps are data (super admin edits
+  // them in the admin panel; Stripe ids are minted by scripts/sync-plans.ts) —
+  // nothing in app logic hardcodes them. Slugs are the stable lookups. Prices
+  // are integer minor units (cents); aiCallsPerMonth is the per-plan AI cap.
+  // Idempotent by slug.
+  const planSeeds: NewPlan[] = [
+    {
+      slug: PLAN_SLUGS.free,
+      name: "Free",
+      description: "Try ApplyNinjaa with 5 AI actions a month.",
+      priceMonthly: 0,
+      priceAnnual: null,
+      annualDiscountPercent: null,
+      limits: {
+        aiCallsPerMonth: 5,
+        profileLimit: 1,
+        customFilters: false,
+        gmailScan: false,
+        dataExport: false,
+      },
+      isActive: true,
+      sortOrder: 0,
+    },
+    {
+      slug: PLAN_SLUGS.starter,
+      name: "Starter",
+      description: "For an active job search.",
+      priceMonthly: 399,
+      priceAnnual: 3830,
+      annualDiscountPercent: 20,
+      limits: {
+        aiCallsPerMonth: 50,
+        profileLimit: 1,
+        customFilters: true,
+        gmailScan: false,
+        dataExport: false,
+      },
+      isActive: true,
+      sortOrder: 1,
+    },
+    {
+      slug: PLAN_SLUGS.pro,
+      name: "Pro",
+      description: "For a serious, high-volume search.",
+      priceMonthly: 699,
+      priceAnnual: 6710,
+      annualDiscountPercent: 20,
+      limits: {
+        aiCallsPerMonth: 150,
+        profileLimit: 3,
+        customFilters: true,
+        gmailScan: false,
+        dataExport: true,
+      },
+      isActive: true,
+      sortOrder: 2,
+    },
+    {
+      slug: PLAN_SLUGS.premium,
+      name: "Premium",
+      description: "Maximum throughput for power users.",
+      priceMonthly: 999,
+      priceAnnual: 9590,
+      annualDiscountPercent: 20,
+      limits: {
+        // -1 = unlimited (see getProfileLimit in lib/usage/enforce.ts).
+        aiCallsPerMonth: 300,
+        profileLimit: -1,
+        customFilters: true,
+        gmailScan: true,
+        dataExport: true,
+      },
+      isActive: true,
+      sortOrder: 3,
+    },
+  ];
+  for (const planSeed of planSeeds) {
+    const existing = await db.getPlanBySlug(planSeed.slug);
+    if (!existing) {
+      await db.createPlan(planSeed);
+      continue;
+    }
+    // Backfill only limit keys the plan doesn't have yet, so a deployment
+    // seeded before an entitlement existed picks it up on the next `npm run
+    // seed`. Everything a super admin owns — price, name, description, active,
+    // sort order, Stripe ids, and any limit they've already tuned — is left
+    // exactly as-is, which keeps this safe to re-run any number of times.
+    const seededLimits = planSeed.limits ?? {};
+    const currentLimits = existing.limits ?? {};
+    const missing = Object.entries(seededLimits).filter(
+      ([key]) => !(key in currentLimits),
+    );
+    if (missing.length > 0) {
+      await db.updatePlan(existing.id, {
+        limits: { ...currentLimits, ...Object.fromEntries(missing) },
+      });
+      console.log(
+        `  ↳ ${planSeed.slug}: added limits ${missing.map(([k]) => k).join(", ")}`,
+      );
+    }
+  }
+
+  // Admin-default "Valid Job" filters (product spec §4). Idempotent by label.
+  const defaultFilters = [
+    {
+      label: "Visa Sponsorship Available",
+      description:
+        "Yes when the posting says it sponsors visas (H1-B or similar). No when it says it cannot sponsor. Neutral when sponsorship is never mentioned — most postings say nothing, and silence is not a refusal.",
+    },
+    {
+      label: "US Citizenship Required",
+      description:
+        "Yes when the posting requires US citizenship. No when it explicitly says citizenship is not required. Neutral when it isn't mentioned. (Yes here is a restriction, not a positive.)",
+    },
+    {
+      label: "Security Clearance Required",
+      description:
+        "Yes when the posting requires an active or obtainable clearance. No when it explicitly says none is needed. Neutral when it isn't mentioned. (Yes here is a restriction, not a positive.)",
+    },
+    {
+      label: "Work Authorization Match",
+      description:
+        "Compares the posting against the candidate's stated work authorization. Yes when they're compatible, No when the posting's requirement rules the candidate out, Neutral when the posting states no requirement.",
+    },
+    {
+      label: "Remote/Hybrid/Onsite Match",
+      description:
+        "Compares the posting against the candidate's preferred arrangement. Yes when they match, No when the posting conflicts (e.g. fully onsite for a remote-only candidate), Neutral when the posting doesn't state where the work happens.",
+    },
+    {
+      label: "Salary Range Disclosed",
+      description:
+        "Yes when the posting states a salary or compensation range. No is not really applicable here — a posting that omits pay is Neutral, not No.",
+    },
+  ];
+  const existingAdminFilters = await db.listAdminJobFilters();
+  const existingLabels = new Set(existingAdminFilters.map((f) => f.label));
+  for (const filter of defaultFilters) {
+    if (!existingLabels.has(filter.label)) {
+      await db.createJobFilter({
+        label: filter.label,
+        description: filter.description,
+        type: JOB_FILTER_TYPES.admin,
+        ownerId: null,
+        isActive: true,
+      });
+    }
+  }
+
+  // Ensure the platform settings singleton exists. `trialDays` (default 7) is
+  // the length of the local no-card trial started at email verification;
+  // the legacy Stripe-checkout trial is disabled in lib/payments/checkout.ts.
   const settings = await db.getAppSettings();
 
   console.log("Seed complete:");
@@ -178,8 +303,10 @@ async function main(): Promise<void> {
   );
   const plans = await db.listPlans();
   console.log(
-    `  plans         ${plans.map((p) => p.name).join(", ") || "none"}`,
+    `  plans         ${plans.map((p) => `${p.name} (${p.slug})`).join(", ") || "none"}`,
   );
+  const filters = await db.listAdminJobFilters();
+  console.log(`  job filters   ${filters.length} admin defaults`);
   console.log(`  app settings  trialDays=${settings.trialDays}`);
   console.log(`  password for both: ${SEED_PASSWORD}`);
 

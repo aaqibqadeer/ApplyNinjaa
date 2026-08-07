@@ -3,89 +3,125 @@
 > **Read this first, every session** (CLAUDE.md §11). Living **snapshot** —
 > overwritten, not appended. Keep it terse. Update at the end of every phase.
 
-_Last updated: 2026-07-20 — **Template v1.0.0, feature-complete.**_
+_Last updated: 2026-07-28 — **v1.1 complete** (bug fixes, tier entitlements,
+profile saved answers, extension redesign, filter semantics + /help, violet
+palette, production roadmap + CI). Not yet run against a live database._
 
-## Marketing + app shell (post-v1.0.0)
+## What this fork is
 
-- **Public landing page** (`app/page.tsx`) replaces the Phase-0 smoke card:
-  static + auth-free (renders on any fork, SEO-friendly). Sections are
-  feature-scoped `components/marketing/` (`Hero`, `FeatureShowcase`,
-  `CtaSection`); header/footer are shared (`SiteHeader`, `SiteFooter`,
-  `BrandMark`). Primary CTA → `/login`.
-- **Signed-in nav** (`components/shared/AppHeader` + client `AppNav`): global bar
-  reused by `/dashboard`, `/settings/organization`, and the `/admin` layout.
-  Derives links from flags + role (Dashboard always; Organization when
-  `multiTenant` && org-admin; Admin when `features.admin` && admin/super-admin),
-  and mounts `WorkspaceSwitcher` + `LogoutButton`. Dashboard slimmed to a
-  welcome + account card (nav/switcher/sign-out moved into the header).
-- Verified: typecheck; landing renders light+dark (headless); `/login` 200,
-  `/dashboard`→307 `/login`. Signed-in pages still need a live DB to render.
+**ApplyNinjaa** — SaaS for job seekers (web dashboard + platform admin +
+Chrome MV3 extension in `/extension`): parses resumes into profiles, screens
+job postings against "Valid Job" filters (Yes/No/Neutral via AI), scores fit
+0-100, autofills applications, tracks them, and optionally scans Gmail.
+Positioning: visa-constrained job seekers (F-1 OPT/STEM OPT, H1-B, TN,
+H4-EAD). v1 shipped on `staging`; v1.1 work is on
+`claude/nextjs-boilerplate-analysis-mt71w3`.
 
-## Phases (all ✅ complete)
+## Resolved choices
 
-| #   | Area                    | Landed                                                                                          |
-| --- | ----------------------- | ----------------------------------------------------------------------------------------------- |
-| 0   | Foundation              | Next.js 15 App Router, TS, Tailwind **v4**, ESLint, base shadcn/ui                              |
-| 0.5 | Foundations             | lint+Prettier, theme skeleton, component catalog, KB, test-env guardrail scaffold               |
-| 1   | Config & flags          | typed `config/features.ts`, flag-aware `env.schema.ts`, `.env.example`                          |
-| 2   | DB adapter layer        | `DatabaseAdapter` + Supabase/MongoDB impls, selector, multi-tenant schema, `seed.ts`            |
-| 3   | Auth core               | `@/lib/auth` (Supabase Auth / JWT+bcrypt), email+reset/magic-link/OAuth, middleware, auth UI    |
-| 4   | Roles & multi-tenant UX | `config/permissions.ts`, role guards + `requireSuperAdmin()`, invites, cookie active-org, orgs  |
-| 5   | Payments (data layer)   | `@/lib/payments` Stripe adapter, `plans`/`app_settings`/`subscriptions`, `hasAccess()`, trials  |
-| 6   | Storage/Phone/Email     | `@/lib/storage` (S3), `@/lib/phone` (Twilio), `@/lib/email/send.ts` (`sendEmail`)               |
-| 7   | Admin panel             | `/admin` (tiered guards), plan CRUD, cross-org subs cancel/refund, sonner toasts                |
-| 8   | AI integration          | `@/lib/ai` (`AiAdapter` gen/stream), Anthropic+OpenAI SDKs, `ai(provider?)`, `/api/ai/generate` |
-| 9   | SEO & legal             | Metadata API, `sitemap.ts`/`robots.ts`, flag-gated `CookieBanner`, legal templates + prompt     |
-| 10  | Docs finalization       | prompts, getting-started/deployment guides, README index, CLAUDE.md/.cursorrules reconcile      |
+- **DB: MongoDB only** — Supabase db/auth adapters deleted (§1.5).
+  `multiTenant` off: org ≡ user via silent default org; the org stays the
+  billing entity so all Stripe plumbing is reused unchanged.
+- **AI: DeepSeek** via `lib/ai/deepseek/adapter.ts` (OpenAI-compatible;
+  `AI_PROVIDERS` now anthropic|openai|deepseek). All product AI tasks live in
+  `lib/ai/tasks.ts` (parse resume, map fields, analyze job = filters+fit in
+  ONE call, classify emails); routes wrap them with quota + rate limits.
+- **Auth**: template custom-JWT auth + LinkedIn OAuth (OIDC) + email
+  verification (send-on-signup; OAuth/magic-link verify implicitly). Bearer
+  path for the extension: `POST /api/auth/extension-token` (cookie→30d JWT,
+  purpose `extension`), `authorizeApi()` accepts Bearer-or-cookie; middleware
+  passes Bearer API traffic through.
+- **Trial**: local no-card 7-day Pro trial at email verification, one per
+  verified email (`users.trial_used_at`); a `trialing` subscription row with
+  no Stripe ids, `currentPeriodEnd` = trial end; lazy expiry to Free in
+  `getEffectivePlan()` (lib/payments/access.ts). Legacy Stripe card-trial
+  neutralized (`checkout.ts` sends `trialEnd:null`); `app_settings.trialDays`
+  (default 7) is the trial length knob.
+- **Caps/limits**: `lib/usage/` (Mongo-only, deliberately outside the DB
+  adapter) — atomic monthly counters, hard 402 block w/ upgrade payload at
+  `limits.aiCallsPerMonth`, per-user + per-IP fixed-window rate limits,
+  one-time limit-reached email at exactly cap.
+- **Plans**: Free/Starter/Pro/Premium seeded with stable **slugs** +
+  `limits.aiCallsPerMonth` (5/50/150/300); `getPlanBySlug`; Stripe ids minted
+  by `npm run sync:plans` (or admin save). Prices: 0 / 399 / 699 / 999 ¢mo,
+  annual 3830/6710/9590 (~20% off, flag-gated).
+- **Admin**: `/admin` is PLATFORM-staff only (`users.is_super_admin` |
+  `users.is_support_admin`; org-admin no longer enters — every user org-admins
+  their own silent org). Support tier: view users + refunds only. All admin
+  mutations audited in `admin_actions` (reason required for refunds/suspend/
+  ban/delete/cancel).
+- **Extension** (`/extension`, Vite + React, own package.json): NO content
+  script — DOM work ships as closure-free funcs via
+  `chrome.scripting.executeScript` (activeTab+scripting+contextMenus+storage;
+  host permission = backend origin only). Popup: analyze (session-cached per
+  URL), autofill w/ manual-review list, Track (always "Applied"), profile
+  picker (per-domain memory server-side). Build: `npm run build:extension`
+  (VITE_API_ORIGIN). Popup tokens hand-mirrored from globals.css.
+- **Gmail**: separate read-only consent (`/api/gmail/*`), encrypted refresh
+  token (`gmail_tokens`), manual scans capped at 50 msgs = 1 AI action,
+  per-proposal user approval before any tracker write.
+- **Encryption**: `lib/crypto/field-encryption.ts` AES-256-GCM
+  (`EEO_ENCRYPTION_KEY`, per-user AAD) — EEO profile fields (consent-gated,
+  encrypted/decrypted ONLY in `lib/profiles/service.ts`) + Gmail tokens.
+- **Compliance**: routed `/privacy` (Google Limited Use language), `/terms`
+  (user-initiated-actions clause), `/cookie-policy`; cookie banner on;
+  30-day soft delete (self-serve + admin) → `npm run hard-delete` purges PII;
+  marketing emails opt-out via settings + tokenized one-click unsubscribe.
+- **Theme**: violet oklch palette (primary hue 300) in `config/theme.ts` +
+  `globals.css` (both, hand-mirrored) + extension popup css; dark mode toggle
+  - pre-hydration script. Values verified in-gamut and AA-contrast — oklch can
+    express colours sRGB can't, and browsers clip them silently.
+- **Entitlements**: `plans.limits` carries `profileLimit`, `customFilters`,
+  `gmailScan`, `dataExport` alongside `aiCallsPerMonth`. Booleans →
+  `requireFeature()` (402 `FEATURE_LOCKED`); numerics → typed readers in
+  `lib/usage/enforce.ts` (never `hasAccess`). Gate creation only, never delete
+  on downgrade. Matrix + rationale in `docs/architecture/data-layer.md`.
+- **Free trial grants Starter** (not Pro): `startTrialIfEligible`,
+  `TRIAL_PLAN_SLUG` in `lib/payments/trials.ts`.
+- **Extension**: opening the popup costs ZERO AI calls. Six actions; only
+  Check Fit Score and AI Fill bill. Quick Fill matches offline in the popup
+  (`extension/src/lib/quick-fill.ts`) so it survives the cap. Re-track appends
+  to `applications.additionalLinks`, primary `url` unchanged.
+- **Hosting**: Railway + MongoDB Atlas. CI in `.github/workflows/ci.yml`; no
+  CD workflow by design (Railway's GitHub integration + "Wait for CI").
+  Roadmap: `docs/guides/production-roadmap.md`.
 
-CLAUDE.md §14 (roles) and §15 (pricing) are fully implemented (data layer +
-adapters + super-admin admin UI).
+## Verification status
 
-## Stack
+- `npm run typecheck`, `npm run lint`, and `next build` all pass (the latter
+  with `SKIP_ENV_VALIDATION=1`); `npm run build:extension` produces
+  `extension/dist` with a correctly substituted `manifest.json`.
+- **Runtime-verified:** resume text extraction (PDF via pdf-parse v2 + DOCX
+  via mammoth return clean text; unsupported types raise
+  `UnsupportedResumeError`).
+- **First live run (2026-07-28) surfaced three bugs, now fixed** — see the
+  dated entry in `decisions.md`: PDF upload crashed (pdfjs bundling), creating
+  a second profile crashed (client-reference proxy spread), and editing a
+  profile silently wiped `projects`. Everything else below still stands.
+- **v1.1 features are typecheck/lint/build-verified only.** No entitlement
+  gate, seed backfill, Quick Fill match, or Re-track has run against a live
+  database or a real page. Re-run `npm run seed` before testing tiers — the
+  new limit keys only reach an existing database that way.
+- **Never runtime-verified against a live MongoDB** — no Docker/mongod in the
+  build sandbox (proxy blocks mongo binary downloads). First run needs:
+  `.env.local` (see .env.example), `docker compose up -d`, `npm run seed`,
+  smoke: signup → verify (console link) → onboarding → extension → admin.
+  Everything touching the DB (all CRUD, quotas, trials, admin, Gmail) is
+  therefore unexercised — treat the first live run as the real test pass.
+- Stripe/DeepSeek/Google/LinkedIn/Resend flows need real keys (names in
+  .env.example) — none were available here, so no AI/payment/email call has
+  ever actually executed.
+- **`docs/guides/testing-guide.md`** is the manual QA pass for all of the
+  above: non-technical setup (incl. how to obtain every key) + 66 numbered
+  test cases. Point the first live tester at it; there is no automated suite.
 
-Next.js 15.5.x (App Router) · TS strict · Tailwind **v4** (CSS-first, no
-`tailwind.config.ts`) · shadcn/ui (new-york) · Prettier + ESLint · Zod. Theme:
-`config/theme.ts` mirrored into `app/globals.css`, dark mode class-based.
+## Deferred / rough edges
 
-## Configured in THIS fork
-
-**Every feature flag is OFF** — no `NEXT_PUBLIC_FEATURE_*` and no provider
-secrets are set here. All features are implemented behind their lib seam and
-degrade to 404/null when off. No DB provider is configured (no DB env).
-
-| Seam                         | State                                                                                          |
-| ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| flags (`config/features.ts`) | full typed registry; `payments` is nested `{enabled,annualBilling}`; `aiProviders` is an array |
-| env (`env.schema.ts`)        | validates conditionally on flags + `DB_PROVIDER`; throws at boot naming missing vars           |
-| `@/lib/db`                   | both Supabase + MongoDB adapters exist; `DB_PROVIDER` selects; none configured                 |
-| `@/lib/auth`                 | all methods implemented, flag-gated; `Session` carries `role` + `user.isSuperAdmin`            |
-| `@/lib/payments`             | Stripe adapter (checkout/portal/cancel/refund/createPrice/webhook); no keys set                |
-| `@/lib/storage` `/phone`     | S3 + Twilio Verify; components render null when off                                            |
-| `@/lib/email/send.ts`        | single `sendEmail` (not flag-gated) — Resend if `RESEND_API_KEY`, else console                 |
-| `@/lib/ai`                   | Anthropic+OpenAI behind `ai(provider?)`; array flag empty here                                 |
-| admin / SEO / cookie banner  | `/admin` 404 when off; Metadata+sitemap+robots always on; `cookieBanner` flag off              |
-
-## Intentionally deferred
-
-- Supabase SQL migration/RLS files (create tables/policies matching
-  `lib/db/schema.ts`, incl. `is_super_admin`, invitations, Phase-5 tables + the
-  `organizations.stripe_customer_id`/`trial_ends_at` columns) — none generated here.
-- Per-request user-scoped (RLS-enforcing) Supabase clients — adapter uses the
-  service-role key.
-- `scripts/seed-test.ts` body (still a stub; `pnpm seed` works).
-- Typed `AppError` boundary (§4/§8) — adapters throw descriptive `Error`s.
-- Subdomain/path org routing (Phase 4 chose cookie-based active-org).
-- theme→CSS codegen; a shared HTTP SSE helper for AI streaming.
-
-## Known rough edges
-
-- `config/theme.ts` ↔ `app/globals.css` kept in sync **manually**.
-- `db`/`auth` are lazy; env parses at import (fail-fast) — use
-  `SKIP_ENV_VALIDATION=1` for builds/CI without secrets.
-- **Not runtime-verified against a live DB here** (none in this env). Verified:
-  typecheck, prod build, provider selection, env/guardrail, JWT+bcrypt, and (Phase 9) sitemap/robots + cookie banner via a headless browser. The full signup→login
-  and seed→invite→accept flows should be smoke-tested on a fork with a test DB.
-- **`pnpm lint` is broken in this environment:** `@rushstack/eslint-patch` fails
-  to patch ESLint 9.39.5 at config-load (also breaks `next build`'s lint step). A
-  toolchain version-resolution issue, not app code — pin ESLint/patch to fix.
-- `jose` emits a non-fatal Edge `DecompressionStream` warning — safe to ignore.
+- `seed-test.ts` still a stub; no test framework (template debt).
+- Trial re-grant on delete-and-re-signup (new user row) — accepted for v1.
+- Extension tokens are stateless 30d — no revocation list (add
+  `users.tokenVersion` if needed).
+- Gmail scan is synchronous in the route (fine ≤50 msgs; chunk if raised).
+- Analytics (PostHog/GA) deliberately absent — phase 2.
+- Out of scope for v1 (spec): job scraping/notifier, resume builder, teams,
+  job caching, non-Chrome browsers, multi-currency.

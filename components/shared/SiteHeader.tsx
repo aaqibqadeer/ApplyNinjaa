@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { BrandMark } from "@/components/shared/BrandMark";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { Button } from "@/components/ui/button";
+import { APP_NAME } from "@/config/brand";
 
 interface SiteHeaderProps {
   /** When true, swap the auth buttons for a single "Dashboard" link. */
@@ -10,8 +12,8 @@ interface SiteHeaderProps {
 
 /** In-page anchors for the marketing sections rendered on the landing page. */
 const MARKETING_LINKS = [
-  { href: "#features", label: "Features" },
-  { href: "#stack", label: "Stack" },
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#pricing", label: "Pricing" },
 ] as const;
 
 /**
@@ -25,7 +27,7 @@ export function SiteHeader({ signedIn = false }: SiteHeaderProps) {
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-6">
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <BrandMark />
-          <span>ninjakit</span>
+          <span>{APP_NAME}</span>
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm md:flex">
@@ -41,6 +43,7 @@ export function SiteHeader({ signedIn = false }: SiteHeaderProps) {
         </nav>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {signedIn ? (
             <Button asChild size="sm">
               <Link href="/dashboard">Dashboard</Link>

@@ -8,7 +8,11 @@ export async function GET(
   { params }: { params: Promise<{ provider: string }> },
 ): Promise<NextResponse> {
   const { provider } = await params;
-  if (provider !== "google" && provider !== "github") {
+  if (
+    provider !== "google" &&
+    provider !== "github" &&
+    provider !== "linkedin"
+  ) {
     return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
   }
   const code = request.nextUrl.searchParams.get("code");

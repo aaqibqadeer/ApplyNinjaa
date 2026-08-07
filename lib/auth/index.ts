@@ -1,27 +1,16 @@
 /**
- * lib/auth/index.ts — selects the auth adapter from `DB_PROVIDER` (Node). App
- * code and route handlers do `import { auth } from "@/lib/auth"`. This module
- * imports the concrete adapters (mongoose / supabase-js), so it is Node-only —
- * middleware uses `@/lib/auth/edge` instead.
+ * lib/auth/index.ts — the auth adapter accessor (Node). App code and route
+ * handlers do `import { auth } from "@/lib/auth"`. This module imports the
+ * concrete adapter (mongoose), so it is Node-only — middleware uses
+ * `@/lib/auth/edge` instead. This fork resolved to MongoDB (§1.5); the
+ * Supabase auth adapter was removed.
  */
-
-import { env } from "@/config/env.schema";
 
 import type { AuthAdapter } from "./adapter";
 import { MongoAuthAdapter } from "./mongodb/adapter";
-import { SupabaseAuthAdapter } from "./supabase/adapter";
 
 function createAuthAdapter(): AuthAdapter {
-  switch (env.DB_PROVIDER) {
-    case "supabase":
-      return new SupabaseAuthAdapter();
-    case "mongodb":
-      return new MongoAuthAdapter();
-    default: {
-      const exhaustive: never = env.DB_PROVIDER;
-      throw new Error(`Unsupported DB_PROVIDER: ${String(exhaustive)}`);
-    }
-  }
+  return new MongoAuthAdapter();
 }
 
 /** Created lazily on first use (not at import) — see the note in lib/db/index.ts. */
