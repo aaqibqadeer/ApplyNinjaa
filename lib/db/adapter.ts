@@ -19,12 +19,14 @@ import type {
   Application,
   ApplicationStatus,
   AppSettings,
+  ExclusionRule,
   GmailScan,
   Invitation,
   InvitationStatus,
   JobFilter,
   NewAdminAction,
   NewApplication,
+  NewExclusionRule,
   NewGmailScan,
   NewInvitation,
   NewJobFilter,
@@ -220,6 +222,12 @@ export interface DatabaseAdapter {
     enabled: boolean,
   ): Promise<UserFilterSetting>;
   listUserFilterSettings(userId: string): Promise<UserFilterSetting[]>;
+
+  /* -- Exclusion rules (per-user company/keyword blocklists) --------------- */
+  createExclusionRule(input: NewExclusionRule): Promise<ExclusionRule>;
+  getExclusionRuleById(id: string): Promise<ExclusionRule | null>;
+  listExclusionRulesForUser(userId: string): Promise<ExclusionRule[]>;
+  deleteExclusionRule(id: string): Promise<void>;
 
   /* -- Admin actions (append-only audit log) ------------------------------- */
   createAdminAction(input: NewAdminAction): Promise<AdminAction>;

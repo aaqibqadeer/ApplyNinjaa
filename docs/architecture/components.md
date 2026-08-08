@@ -130,6 +130,7 @@ feature needs the same pattern.
 | `ProfileEditor`     | `components/profiles/ProfileEditor.tsx`      | Client wrapper persisting ProfileForm via POST/PATCH `/api/profiles`.                                                       |
 | `ProfileList`       | `components/profiles/ProfileList.tsx`        | Profile rows with edit / make-default / delete.                                                                             |
 | `FilterToggles`     | `components/filters/FilterToggles.tsx`       | Valid Job filter toggles (admin defaults + own custom, add/remove). Used by onboarding step 4 and `/settings/filters`.      |
+| `ExclusionLists`    | `components/filters/ExclusionLists.tsx`      | Excluded-companies and excluded-keywords chip lists (add/remove). Hard rules matched in code, not by the AI. Used by `/settings/filters`. |
 | `ApplicationsTable` | `components/dashboard/ApplicationsTable.tsx` | Fully inline-editable tracker table: sort, search + status filter, bulk mark-rejected/delete, CSV export.                   |
 | `OnboardingWizard`  | `components/onboarding/OnboardingWizard.tsx` | 5-step onboarding (welcome → resume parse → review → filters → done) with progress bar.                                     |
 | `VerifyEmailBanner` | `components/auth/VerifyEmailBanner.tsx`      | Resend-verification nudge for unverified accounts (verification starts the free trial).                                     |

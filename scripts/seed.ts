@@ -21,6 +21,7 @@ import { env } from "@/config/env.schema";
 import { auth } from "@/lib/auth";
 import {
   db,
+  EXCLUSION_KINDS,
   INVITATION_STATUSES,
   JOB_FILTER_TYPES,
   ORG_ROLES,
@@ -279,6 +280,25 @@ async function main(): Promise<void> {
     }
   }
 
+  // Example exclusions for the seeded regular user (§1.4 — every new table
+  // gets a seed entry). Unlike filters these are per-user, so they hang off
+  // the seeded account rather than being platform defaults. `createExclusionRule`
+  // is idempotent by (user, kind, value), so re-running the seed is a no-op.
+  const defaultExclusions = [
+    { kind: EXCLUSION_KINDS.company, value: "Acme Staffing" },
+    { kind: EXCLUSION_KINDS.keyword, value: "unpaid" },
+    { kind: EXCLUSION_KINDS.keyword, value: "commission only" },
+  ];
+  for (const exclusion of defaultExclusions) {
+    await db.createExclusionRule({
+      organizationId: org.id,
+      userId: member.id,
+      kind: exclusion.kind,
+      value: exclusion.value,
+      isActive: true,
+    });
+  }
+
   // Ensure the platform settings singleton exists. `trialDays` (default 7) is
   // the length of the local no-card trial started at email verification;
   // the legacy Stripe-checkout trial is disabled in lib/payments/checkout.ts.
@@ -307,6 +327,9 @@ async function main(): Promise<void> {
   );
   const filters = await db.listAdminJobFilters();
   console.log(`  job filters   ${filters.length} admin defaults`);
+  console.log(
+    `  exclusions    ${defaultExclusions.length} examples for ${member.email}`,
+  );
   console.log(`  app settings  trialDays=${settings.trialDays}`);
   console.log(`  password for both: ${SEED_PASSWORD}`);
 

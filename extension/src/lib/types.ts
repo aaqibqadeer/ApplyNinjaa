@@ -13,6 +13,21 @@ export interface Usage {
   cap: number;
 }
 
+export type ExclusionKind = "company" | "keyword";
+
+/** GET /api/exclusions — a plain read, no AI action. */
+export interface ExclusionRule {
+  id: string;
+  kind: ExclusionKind;
+  value: string;
+  isActive: boolean;
+}
+
+export interface ExclusionMatch {
+  kind: ExclusionKind;
+  value: string;
+}
+
 export interface AnalyzeJobResponse {
   ok: true;
   profileId: string;

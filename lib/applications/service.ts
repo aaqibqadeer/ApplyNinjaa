@@ -11,6 +11,7 @@ import {
   applicationFilterResultSchema,
   applicationStatusSchema,
   db,
+  exclusionMatchSchema,
   type Application,
 } from "@/lib/db";
 
@@ -37,6 +38,7 @@ export const applicationInputSchema = z.object({
   fitScore: z.number().min(0).max(100).nullable().optional(),
   fitReasoning: z.string().max(1000).nullable().optional(),
   filterResults: z.array(applicationFilterResultSchema).max(50).optional(),
+  exclusionMatches: z.array(exclusionMatchSchema).max(50).optional(),
   appliedAt: z.coerce.date().optional(),
   notes: z.string().max(5000).optional(),
 });
@@ -75,6 +77,7 @@ export async function trackApplication(
     fitScore: input.fitScore ?? null,
     fitReasoning: input.fitReasoning ?? null,
     filterResults: input.filterResults ?? [],
+    exclusionMatches: input.exclusionMatches ?? [],
     appliedAt: input.appliedAt ?? new Date(),
     notes: input.notes ?? "",
   });

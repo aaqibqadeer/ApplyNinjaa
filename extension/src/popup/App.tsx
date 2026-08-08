@@ -9,9 +9,11 @@ import {
 } from "../lib/api";
 import { collectPageData, fillFields } from "../lib/dom-actions";
 import type { CollectedField, CollectedPage } from "../lib/dom-actions";
+import { matchExclusions } from "../lib/exclusions";
 import { quickFill } from "../lib/quick-fill";
 import type {
   AnalyzeJobResponse,
+  ExclusionRule,
   MapFieldsResponse,
   ProfileFillData,
   ProfileSummary,
@@ -36,6 +38,8 @@ const MIN_JOB_TEXT = 40;
 
 const RECENT_APPS_KEY = "recent-apps";
 const RECENT_APPS_SHOWN = 5;
+/** Enough to know why it fired; the rest collapse into a "+N more". */
+const EXCLUSIONS_SHOWN = 2;
 
 function analysisKey(url: string, profileId: string | null): string {
   return `analysis:${url}:${profileId ?? ""}`;
@@ -49,6 +53,7 @@ export function App() {
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalyzeJobResponse | null>(null);
+  const [exclusions, setExclusions] = useState<ExclusionRule[]>([]);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [recent, setRecent] = useState<TrackedApplication[]>([]);
   const [showRetrack, setShowRetrack] = useState(false);
@@ -72,6 +77,25 @@ export function App() {
   const atCap = usage ? usage.used >= usage.cap : false;
   const hasFields = (page?.fields.length ?? 0) > 0;
   const analyzable = (page?.jobText.trim().length ?? 0) >= MIN_JOB_TEXT;
+
+  // Matched in the popup, not on the server: an exclusion has to be able to
+  // warn on a page the user hasn't spent an AI action on. `analysis.company`
+  // is used when it's already been paid for, otherwise the domain carries it.
+  const exclusionHits = useMemo(
+    () =>
+      page
+        ? matchExclusions(
+            {
+              company: analysis?.company ?? null,
+              roleTitle: analysis?.roleTitle ?? page.title,
+              jobText: page.jobText,
+              domain,
+            },
+            exclusions,
+          )
+        : [],
+    [page, analysis, domain, exclusions],
+  );
 
   const handleApiError = useCallback((err: unknown): void => {
     if (err instanceof SignInRequiredError) {
@@ -133,13 +157,18 @@ export function App() {
       setPage(collected);
       setScreen({ kind: "ready" });
 
-      // Usage + profiles in parallel; neither costs an AI action.
-      const [usageResult, profilesResult] = await Promise.allSettled([
-        api<UsageResponse>("/api/usage"),
-        api<{ profiles: ProfileSummary[] }>("/api/profiles"),
-      ]);
+      // Usage + profiles + exclusions in parallel; none costs an AI action.
+      const [usageResult, profilesResult, exclusionsResult] =
+        await Promise.allSettled([
+          api<UsageResponse>("/api/usage"),
+          api<{ profiles: ProfileSummary[] }>("/api/profiles"),
+          api<{ exclusions: ExclusionRule[] }>("/api/exclusions"),
+        ]);
       if (usageResult.status === "fulfilled") {
         setUsage({ used: usageResult.value.used, cap: usageResult.value.cap });
+      }
+      if (exclusionsResult.status === "fulfilled") {
+        setExclusions(exclusionsResult.value.exclusions);
       }
       if (profilesResult.status === "rejected") {
         handleApiError(profilesResult.reason);
@@ -158,8 +187,7 @@ export function App() {
 
       const stored = await chrome.storage.session.get(RECENT_APPS_KEY);
       const cachedRecent = stored[RECENT_APPS_KEY] as
-        | TrackedApplication[]
-        | undefined;
+        TrackedApplication[] | undefined;
       if (cachedRecent) setRecent(cachedRecent);
     })();
   }, [handleApiError]);
@@ -306,6 +334,9 @@ export function App() {
           fitScore: analysis?.fitScore ?? null,
           fitReasoning: analysis?.fitReasoning ?? null,
           filterResults: analysis?.filterResults ?? [],
+          // Recorded even though the user went ahead — the dashboard should be
+          // able to show that this application was against their own rules.
+          exclusionMatches: exclusionHits,
         },
       });
       setTracked(true);
@@ -414,6 +445,8 @@ export function App() {
   }
 
   const aiDisabled = capBlocked || atCap;
+  const tally = { Yes: 0, No: 0, Neutral: 0 };
+  for (const f of analysis?.filterResults ?? []) tally[f.verdict] += 1;
 
   return (
     <Shell usage={usage}>
@@ -456,6 +489,24 @@ export function App() {
         </div>
       )}
 
+      {exclusionHits.length > 0 && (
+        <div className="border-destructive/50 bg-destructive/10 rounded-lg border p-3">
+          <p className="text-destructive text-sm font-medium">
+            ⚠ On your exclusion list
+          </p>
+          <ul className="text-muted-foreground mt-1 flex flex-col gap-0.5 text-xs">
+            {exclusionHits.slice(0, EXCLUSIONS_SHOWN).map((hit) => (
+              <li key={`${hit.kind}:${hit.value}`}>
+                {hit.kind === "company" ? "Company" : "Keyword"} “{hit.value}”
+              </li>
+            ))}
+            {exclusionHits.length > EXCLUSIONS_SHOWN && (
+              <li>+{exclusionHits.length - EXCLUSIONS_SHOWN} more</li>
+            )}
+          </ul>
+        </div>
+      )}
+
       {analysis && (
         <>
           <div className="bg-card border-border rounded-lg border p-3">
@@ -479,27 +530,41 @@ export function App() {
           </div>
 
           {analysis.filterResults.length > 0 && (
-            <ul className="flex flex-col gap-1.5">
-              {analysis.filterResults.map((f) => (
-                <li
-                  key={f.filterId}
-                  className="flex items-center justify-between gap-2 text-xs"
-                >
-                  <span className="truncate">{f.label}</span>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 font-medium ${
-                      f.verdict === "Yes"
-                        ? "bg-success/15 text-success"
-                        : f.verdict === "No"
-                          ? "bg-destructive/15 text-destructive"
-                          : "bg-muted text-muted-foreground"
-                    }`}
+            // Collapsed by default: the tally answers "anything wrong?" in one
+            // line, and the popup stays short now that exclusions live above.
+            <details className="border-border rounded-lg border px-3 py-2">
+              <summary className="cursor-pointer text-xs">
+                <span className="text-muted-foreground">Filters</span>{" "}
+                <span className="text-success font-medium">✓{tally.Yes}</span>{" "}
+                <span className="text-destructive font-medium">
+                  ✗{tally.No}
+                </span>{" "}
+                <span className="text-muted-foreground font-medium">
+                  ○{tally.Neutral}
+                </span>
+              </summary>
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {analysis.filterResults.map((f) => (
+                  <li
+                    key={f.filterId}
+                    className="flex items-center justify-between gap-2 text-xs"
                   >
-                    {f.verdict}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                    <span className="truncate">{f.label}</span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 font-medium ${
+                        f.verdict === "Yes"
+                          ? "bg-success/15 text-success"
+                          : f.verdict === "No"
+                            ? "bg-destructive/15 text-destructive"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {f.verdict}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
         </>
       )}
@@ -553,9 +618,7 @@ export function App() {
           <button
             className="btn-primary"
             disabled={busy !== null || aiDisabled || !analyzable}
-            title={
-              analyzable ? undefined : "Not enough job text on this page"
-            }
+            title={analyzable ? undefined : "Not enough job text on this page"}
             onClick={() => void onCheckFit()}
           >
             {busy === "analyze"
@@ -590,11 +653,7 @@ export function App() {
               disabled={busy !== null || tracked}
               onClick={() => void onTrack()}
             >
-              {tracked
-                ? "Tracked ✓"
-                : busy === "track"
-                  ? "Tracking…"
-                  : "Track"}
+              {tracked ? "Tracked ✓" : busy === "track" ? "Tracking…" : "Track"}
             </button>
             <button
               className="btn-secondary flex-1"

@@ -564,6 +564,56 @@ export const profileDomainPrefSchema = z.object({
 export type ProfileDomainPref = z.infer<typeof profileDomainPrefSchema>;
 
 /* -------------------------------------------------------------------------- */
+/* ExclusionRule (tenant-scoped: hard "never show me this" lists)             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Exclusions are the inverse of filters, and deliberately a different table.
+ *
+ * A filter asks the AI a question and gets a Yes/No/Neutral opinion back. An
+ * exclusion is the user's own flat rule — "never Acme", "never anything that
+ * says unpaid" — so it is matched deterministically in code, costs no AI
+ * action, and can therefore run before the user has spent anything on a page.
+ */
+export const EXCLUSION_KINDS = {
+  company: "company",
+  keyword: "keyword",
+} as const;
+export type ExclusionKind =
+  (typeof EXCLUSION_KINDS)[keyof typeof EXCLUSION_KINDS];
+export const exclusionKindSchema = z.enum([
+  EXCLUSION_KINDS.company,
+  EXCLUSION_KINDS.keyword,
+]);
+
+export const exclusionRuleSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  userId: z.string(),
+  kind: exclusionKindSchema,
+  /** Matched case-insensitively; company rules also match the job's domain. */
+  value: z.string().min(1),
+  isActive: z.boolean().default(true),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type ExclusionRule = z.infer<typeof exclusionRuleSchema>;
+
+export const newExclusionRuleSchema = exclusionRuleSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewExclusionRule = z.infer<typeof newExclusionRuleSchema>;
+
+/** One exclusion that fired, denormalized onto the application it fired on. */
+export const exclusionMatchSchema = z.object({
+  kind: exclusionKindSchema,
+  value: z.string(),
+});
+export type ExclusionMatch = z.infer<typeof exclusionMatchSchema>;
+
+/* -------------------------------------------------------------------------- */
 /* Application (tenant-scoped: carries organization_id)                       */
 /* -------------------------------------------------------------------------- */
 
@@ -612,6 +662,9 @@ export const applicationSchema = z.object({
   fitScore: z.number().min(0).max(100).nullable().optional(),
   fitReasoning: z.string().nullable().optional(),
   filterResults: z.array(applicationFilterResultSchema).default([]),
+  /** Exclusions that fired when this was tracked — kept even though the user
+   * went ahead, so the tracker can show it was against their own rules. */
+  exclusionMatches: z.array(exclusionMatchSchema).default([]),
   appliedAt: z.coerce.date(),
   notes: z.string().default(""),
   createdAt: z.coerce.date(),

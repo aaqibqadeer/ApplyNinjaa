@@ -29,6 +29,7 @@ import {
   newApplicationSchema,
   newGmailScanSchema,
   newInvitationSchema,
+  newExclusionRuleSchema,
   newJobFilterSchema,
   newOrganizationMemberSchema,
   newPlanSchema,
@@ -44,11 +45,14 @@ import {
   type GmailScanProposal,
   type Invitation,
   type InvitationStatus,
+  type ExclusionMatch,
+  type ExclusionRule,
   type JobFilter,
   type NewAdminAction,
   type NewApplication,
   type NewGmailScan,
   type NewInvitation,
+  type NewExclusionRule,
   type NewJobFilter,
   type NewOrganization,
   type NewOrganizationMember,
@@ -223,6 +227,7 @@ interface ApplicationDoc {
   fit_score: number | null;
   fit_reasoning: string | null;
   filter_results: ApplicationFilterResult[];
+  exclusion_matches: ExclusionMatch[];
   applied_at: Date;
   notes: string;
   createdAt: Date;
@@ -246,6 +251,17 @@ interface UserFilterSettingDoc {
   user_id: mongoose.Types.ObjectId;
   filter_id: mongoose.Types.ObjectId;
   enabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface ExclusionRuleDoc {
+  _id: mongoose.Types.ObjectId;
+  organization_id: mongoose.Types.ObjectId;
+  user_id: mongoose.Types.ObjectId;
+  kind: string;
+  value: string;
+  is_active: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -516,6 +532,7 @@ const applicationSchema = new Schema<ApplicationDoc>(
     fit_score: { type: Number, default: null },
     fit_reasoning: { type: String, default: null },
     filter_results: { type: Schema.Types.Mixed, default: [] },
+    exclusion_matches: { type: Schema.Types.Mixed, default: [] },
     applied_at: { type: Date, required: true },
     notes: { type: String, default: "" },
   },
@@ -566,6 +583,31 @@ const userFilterSettingSchema = new Schema<UserFilterSettingDoc>(
   { timestamps: true, collection: "user_filter_settings" },
 );
 userFilterSettingSchema.index({ user_id: 1, filter_id: 1 }, { unique: true });
+
+// Flat per-user blocklists ("never Acme", "never anything saying unpaid").
+// Matched in code, never by the AI — see lib/exclusions/service.ts.
+const exclusionRuleSchema = new Schema<ExclusionRuleDoc>(
+  {
+    organization_id: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+      index: true,
+    },
+    user_id: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    kind: { type: String, required: true },
+    value: { type: String, required: true },
+    is_active: { type: Boolean, required: true, default: true },
+  },
+  { timestamps: true, collection: "exclusion_rules" },
+);
+// One rule per (user, kind, value) — re-adding the same company is a no-op.
+exclusionRuleSchema.index({ user_id: 1, kind: 1, value: 1 }, { unique: true });
 
 // Append-only audit log — no updates, newest-first reads.
 const adminActionSchema = new Schema<AdminActionDoc>(
@@ -660,6 +702,10 @@ const JobFilterModel = model<JobFilterDoc>("JobFilter", jobFilterSchema);
 const UserFilterSettingModel = model<UserFilterSettingDoc>(
   "UserFilterSetting",
   userFilterSettingSchema,
+);
+const ExclusionRuleModel = model<ExclusionRuleDoc>(
+  "ExclusionRule",
+  exclusionRuleSchema,
 );
 const AdminActionModel = model<AdminActionDoc>(
   "AdminAction",
@@ -788,8 +834,7 @@ function toProfile(doc: ProfileDoc): Profile {
       null) as Profile["workAuthorization"],
     workArrangement: (doc.work_arrangement ??
       null) as Profile["workArrangement"],
-    employmentTypes: (doc.employment_types ??
-      []) as Profile["employmentTypes"],
+    employmentTypes: (doc.employment_types ?? []) as Profile["employmentTypes"],
     salaryExpectation: doc.salary_expectation ?? null,
     eeo: doc.eeo ?? null,
     isDefault: doc.is_default ?? false,
@@ -827,6 +872,7 @@ function toApplication(doc: ApplicationDoc): Application {
     fitScore: doc.fit_score ?? null,
     fitReasoning: doc.fit_reasoning ?? null,
     filterResults: doc.filter_results ?? [],
+    exclusionMatches: doc.exclusion_matches ?? [],
     appliedAt: doc.applied_at,
     notes: doc.notes ?? "",
     createdAt: doc.createdAt,
@@ -854,6 +900,19 @@ function toUserFilterSetting(doc: UserFilterSettingDoc): UserFilterSetting {
     userId: doc.user_id.toString(),
     filterId: doc.filter_id.toString(),
     enabled: doc.enabled,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
+function toExclusionRule(doc: ExclusionRuleDoc): ExclusionRule {
+  return {
+    id: doc._id.toString(),
+    organizationId: doc.organization_id.toString(),
+    userId: doc.user_id.toString(),
+    kind: doc.kind as ExclusionRule["kind"],
+    value: doc.value,
+    isActive: doc.is_active,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -1569,6 +1628,7 @@ export class MongoAdapter implements DatabaseAdapter {
       fit_score: parsed.fitScore ?? null,
       fit_reasoning: parsed.fitReasoning ?? null,
       filter_results: parsed.filterResults,
+      exclusion_matches: parsed.exclusionMatches,
       applied_at: parsed.appliedAt,
       notes: parsed.notes,
     });
@@ -1615,6 +1675,8 @@ export class MongoAdapter implements DatabaseAdapter {
       update.fit_reasoning = patch.fitReasoning ?? null;
     if (patch.filterResults !== undefined)
       update.filter_results = patch.filterResults;
+    if (patch.exclusionMatches !== undefined)
+      update.exclusion_matches = patch.exclusionMatches;
     if (patch.appliedAt !== undefined) update.applied_at = patch.appliedAt;
     if (patch.notes !== undefined) update.notes = patch.notes;
     const doc = await ApplicationModel.findByIdAndUpdate(id, update, {
@@ -1765,6 +1827,54 @@ export class MongoAdapter implements DatabaseAdapter {
       .lean<UserFilterSettingDoc[]>()
       .exec();
     return docs.map(toUserFilterSetting);
+  }
+
+  /* -- Exclusion rules ------------------------------------------------------ */
+
+  async createExclusionRule(input: NewExclusionRule): Promise<ExclusionRule> {
+    await this.connect();
+    const parsed = newExclusionRuleSchema.parse(input);
+    // Idempotent by (user, kind, value): adding a company you already excluded
+    // returns the existing rule instead of failing on the unique index.
+    const doc = await ExclusionRuleModel.findOneAndUpdate(
+      {
+        user_id: new mongoose.Types.ObjectId(parsed.userId),
+        kind: parsed.kind,
+        value: parsed.value,
+      },
+      {
+        $set: { is_active: parsed.isActive },
+        $setOnInsert: {
+          organization_id: new mongoose.Types.ObjectId(parsed.organizationId),
+        },
+      },
+      { new: true, upsert: true },
+    )
+      .lean<ExclusionRuleDoc>()
+      .exec();
+    return toExclusionRule(doc as ExclusionRuleDoc);
+  }
+
+  async getExclusionRuleById(id: string): Promise<ExclusionRule | null> {
+    await this.connect();
+    const doc = await ExclusionRuleModel.findById(id)
+      .lean<ExclusionRuleDoc>()
+      .exec();
+    return doc ? toExclusionRule(doc) : null;
+  }
+
+  async listExclusionRulesForUser(userId: string): Promise<ExclusionRule[]> {
+    await this.connect();
+    const docs = await ExclusionRuleModel.find({ user_id: userId })
+      .sort({ kind: 1, value: 1 })
+      .lean<ExclusionRuleDoc[]>()
+      .exec();
+    return docs.map(toExclusionRule);
+  }
+
+  async deleteExclusionRule(id: string): Promise<void> {
+    await this.connect();
+    await ExclusionRuleModel.findByIdAndDelete(id).exec();
   }
 
   /* -- Admin actions (append-only audit log) -------------------------------- */
