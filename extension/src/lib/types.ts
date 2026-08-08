@@ -28,6 +28,18 @@ export interface ExclusionMatch {
   value: string;
 }
 
+/** Read off the posting during the same analysis — costs no extra AI action. */
+export interface JobDetails {
+  location: string | null;
+  workArrangement: string | null;
+  employmentType: string | null;
+  seniority: string | null;
+  salaryText: string | null;
+  sponsorshipMentioned: "yes" | "no" | null;
+  postedAt: string | null;
+  requiredSkills: string[];
+}
+
 export interface AnalyzeJobResponse {
   ok: true;
   profileId: string;
@@ -37,6 +49,8 @@ export interface AnalyzeJobResponse {
   fitReasoning: string;
   company: string | null;
   roleTitle: string | null;
+  jobDetails: JobDetails | null;
+  exclusionMatches: ExclusionMatch[];
   usage: Usage;
 }
 
@@ -94,6 +108,15 @@ export interface TrackedApplication {
   roleTitle: string;
   url: string | null;
   appliedAt: string;
+}
+
+/** POST /api/applications/[id]/retrack — the row after the page was attached. */
+export interface RetrackedApplication {
+  id: string;
+  company: string;
+  roleTitle: string;
+  url: string | null;
+  additionalLinks: Array<{ url: string; platform: string | null }>;
 }
 
 export interface ProfileSummary {

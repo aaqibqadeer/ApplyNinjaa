@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isAnyAiEnabled } from "@/config/features";
 import { analyzeJob } from "@/lib/ai/tasks";
 import { authErrorResponse, authorizeApi } from "@/lib/auth/roles";
+import { matchExclusionsForUser } from "@/lib/exclusions/service";
 import { enabledFiltersForUser } from "@/lib/filters/service";
 import {
   getProfile,
@@ -32,7 +33,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const session = await authorizeApi(request);
     await enforceAiRateLimits(request, session);
-    const parsed = inputSchema.safeParse(await request.json().catch(() => null));
+    const parsed = inputSchema.safeParse(
+      await request.json().catch(() => null),
+    );
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message ?? "Invalid input" },
@@ -46,7 +49,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       : await profileForDomain(session, domain ?? null);
     if (!profile) {
       return NextResponse.json(
-        { error: "Create a profile first — upload your resume in the dashboard" },
+        {
+          error: "Create a profile first — upload your resume in the dashboard",
+        },
         { status: 400 },
       );
     }
@@ -88,6 +93,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       fitReasoning: data.fitReasoning,
       company: data.company,
       roleTitle: data.roleTitle,
+      jobDetails: data.jobDetails,
+      // Exclusions are matched in the popup (offline, free) — matched again
+      // here so the verdict the user acts on and the one Track records agree
+      // even if the popup's copy of the rules is stale.
+      exclusionMatches: await matchExclusionsForUser(session, {
+        company: data.company,
+        roleTitle: data.roleTitle,
+        jobText,
+        domain: domain ?? null,
+      }),
       usage: { used: quota.used, cap: quota.cap },
     });
   } catch (error) {

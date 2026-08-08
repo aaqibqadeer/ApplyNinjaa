@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { Session } from "@/lib/auth/types";
 import {
   applicationFilterResultSchema,
+  applicationJobDetailsSchema,
   applicationStatusSchema,
   db,
   exclusionMatchSchema,
@@ -39,6 +40,8 @@ export const applicationInputSchema = z.object({
   fitReasoning: z.string().max(1000).nullable().optional(),
   filterResults: z.array(applicationFilterResultSchema).max(50).optional(),
   exclusionMatches: z.array(exclusionMatchSchema).max(50).optional(),
+  jobDetails: applicationJobDetailsSchema.nullable().optional(),
+  analyzedAt: z.coerce.date().nullable().optional(),
   appliedAt: z.coerce.date().optional(),
   notes: z.string().max(5000).optional(),
 });
@@ -78,6 +81,11 @@ export async function trackApplication(
     fitReasoning: input.fitReasoning ?? null,
     filterResults: input.filterResults ?? [],
     exclusionMatches: input.exclusionMatches ?? [],
+    jobDetails: input.jobDetails ?? null,
+    // Only set when fit data rode along — an untracked-then-analyzed row
+    // would otherwise claim an analysis it never had.
+    analyzedAt:
+      input.analyzedAt ?? (input.fitScore != null ? new Date() : null),
     appliedAt: input.appliedAt ?? new Date(),
     notes: input.notes ?? "",
   });

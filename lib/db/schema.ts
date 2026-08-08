@@ -645,6 +645,30 @@ export const applicationLinkSchema = z.object({
 });
 export type ApplicationLink = z.infer<typeof applicationLinkSchema>;
 
+/**
+ * What the analysis read off the posting itself, kept on the application so
+ * the tracker can answer "what was this job again?" months later, when the
+ * posting is gone. Extracted in the same AI call as the verdicts and score —
+ * it costs the user nothing extra.
+ *
+ * Everything is nullable on purpose: a posting that doesn't state its salary
+ * must record `null`, never a guess.
+ */
+export const applicationJobDetailsSchema = z.object({
+  location: z.string().nullable().default(null),
+  workArrangement: workArrangementSchema.nullable().default(null),
+  employmentType: z.string().nullable().default(null),
+  seniority: z.string().nullable().default(null),
+  /** Range as written on the posting, e.g. "$120k–$150k" — never normalised. */
+  salaryText: z.string().nullable().default(null),
+  /** "yes" = says it sponsors, "no" = says it can't, null = doesn't say. */
+  sponsorshipMentioned: z.enum(["yes", "no"]).nullable().default(null),
+  /** As written ("3 days ago", "Jan 2026") — postings rarely give a real date. */
+  postedAt: z.string().nullable().default(null),
+  requiredSkills: z.array(z.string()).default([]),
+});
+export type ApplicationJobDetails = z.infer<typeof applicationJobDetailsSchema>;
+
 export const applicationSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
@@ -665,6 +689,10 @@ export const applicationSchema = z.object({
   /** Exclusions that fired when this was tracked — kept even though the user
    * went ahead, so the tracker can show it was against their own rules. */
   exclusionMatches: z.array(exclusionMatchSchema).default([]),
+  /** Null until the user pays for an analysis on this posting. */
+  jobDetails: applicationJobDetailsSchema.nullable().optional(),
+  /** When the analysis behind fitScore/jobDetails ran. */
+  analyzedAt: z.coerce.date().nullable().optional(),
   appliedAt: z.coerce.date(),
   notes: z.string().default(""),
   createdAt: z.coerce.date(),

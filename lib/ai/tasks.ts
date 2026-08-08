@@ -12,6 +12,7 @@
 import { z } from "zod";
 
 import {
+  applicationJobDetailsSchema,
   filterVerdictSchema,
   profileContactSchema,
   profileEducationSchema,
@@ -139,19 +140,19 @@ export async function mapFormFields(
     "You map a job applicant's profile onto web form fields. Respond with ONLY JSON.";
   const prompt = `Applicant profile (JSON):
 ${JSON.stringify({
-    contact: profile.contact,
-    summary: profile.summary,
-    skills: profile.skills,
-    experience: profile.experience,
-    education: profile.education,
-    links: profile.links,
-    workAuthorization: profile.workAuthorization,
-    workArrangement: profile.workArrangement,
-    employmentTypes: profile.employmentTypes,
-    salaryExpectation: profile.salaryExpectation,
-    // The user's own answers to recurring questions — authoritative.
-    savedAnswers: profile.customFields,
-  })}
+  contact: profile.contact,
+  summary: profile.summary,
+  skills: profile.skills,
+  experience: profile.experience,
+  education: profile.education,
+  links: profile.links,
+  workAuthorization: profile.workAuthorization,
+  workArrangement: profile.workArrangement,
+  employmentTypes: profile.employmentTypes,
+  salaryExpectation: profile.salaryExpectation,
+  // The user's own answers to recurring questions — authoritative.
+  savedAnswers: profile.customFields,
+})}
 ${
   profile.knowledgeBase
     ? `\nBackground notes the applicant wrote about themselves (use for open-ended questions only; never contradict the structured profile above):\n${profile.knowledgeBase.slice(0, 4000)}\n`
@@ -183,6 +184,12 @@ export const jobAnalysisSchema = z.object({
   /** For the one-click Track button. */
   company: z.string().nullable().default(null),
   roleTitle: z.string().nullable().default(null),
+  /**
+   * Everything else worth keeping off the posting. Extracted in the SAME
+   * generation as the verdicts and the score, so the tracker gets richer
+   * without the user paying for a second AI action.
+   */
+  jobDetails: applicationJobDetailsSchema.nullable().default(null),
 });
 export type JobAnalysis = z.infer<typeof jobAnalysisSchema>;
 
@@ -237,9 +244,22 @@ Return {"results":[{"filterId","verdict"}], "fitScore", "fitReasoning", "company
   above, not against what would suit a generic applicant,
 - fitScore: integer 0-100 (skills/experience/seniority match vs the profile;
   ignore demographics),
-- fitReasoning: ONE sentence explaining the score,
+- fitReasoning: TWO OR THREE sentences: what specifically matches, what
+  specifically doesn't, and the biggest risk if they applied. This is read
+  later, out of context, so name the skills/years/requirements involved
+  rather than saying "good match",
 - company/roleTitle: the hiring company and job title from the posting (null
-  when not identifiable).`;
+  when not identifiable),
+- jobDetails: {"location","workArrangement","employmentType","seniority",
+  "salaryText","sponsorshipMentioned","postedAt","requiredSkills"} — read
+  STRAIGHT off the posting, never inferred:
+    workArrangement is exactly "Remote", "Hybrid", "Onsite" or null,
+    sponsorshipMentioned is "yes" (says it sponsors), "no" (says it cannot),
+    or null (doesn't say — the common case),
+    salaryText is the range as written ("$120k–$150k"), not normalised,
+    postedAt is the posting date as written ("3 days ago", "Jan 2026"),
+    requiredSkills is at most 12 named skills the posting actually requires.
+  Every field is null (or [] for requiredSkills) when the posting is silent.`;
   return generateJson(jobAnalysisSchema, system, prompt);
 }
 

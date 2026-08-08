@@ -45,6 +45,7 @@ import {
   type GmailScanProposal,
   type Invitation,
   type InvitationStatus,
+  type ApplicationJobDetails,
   type ExclusionMatch,
   type ExclusionRule,
   type JobFilter,
@@ -228,6 +229,8 @@ interface ApplicationDoc {
   fit_reasoning: string | null;
   filter_results: ApplicationFilterResult[];
   exclusion_matches: ExclusionMatch[];
+  job_details: ApplicationJobDetails | null;
+  analyzed_at: Date | null;
   applied_at: Date;
   notes: string;
   createdAt: Date;
@@ -533,6 +536,8 @@ const applicationSchema = new Schema<ApplicationDoc>(
     fit_reasoning: { type: String, default: null },
     filter_results: { type: Schema.Types.Mixed, default: [] },
     exclusion_matches: { type: Schema.Types.Mixed, default: [] },
+    job_details: { type: Schema.Types.Mixed, default: null },
+    analyzed_at: { type: Date, default: null },
     applied_at: { type: Date, required: true },
     notes: { type: String, default: "" },
   },
@@ -873,6 +878,8 @@ function toApplication(doc: ApplicationDoc): Application {
     fitReasoning: doc.fit_reasoning ?? null,
     filterResults: doc.filter_results ?? [],
     exclusionMatches: doc.exclusion_matches ?? [],
+    jobDetails: doc.job_details ?? null,
+    analyzedAt: doc.analyzed_at ?? null,
     appliedAt: doc.applied_at,
     notes: doc.notes ?? "",
     createdAt: doc.createdAt,
@@ -1629,6 +1636,8 @@ export class MongoAdapter implements DatabaseAdapter {
       fit_reasoning: parsed.fitReasoning ?? null,
       filter_results: parsed.filterResults,
       exclusion_matches: parsed.exclusionMatches,
+      job_details: parsed.jobDetails ?? null,
+      analyzed_at: parsed.analyzedAt ?? null,
       applied_at: parsed.appliedAt,
       notes: parsed.notes,
     });
@@ -1677,6 +1686,10 @@ export class MongoAdapter implements DatabaseAdapter {
       update.filter_results = patch.filterResults;
     if (patch.exclusionMatches !== undefined)
       update.exclusion_matches = patch.exclusionMatches;
+    if (patch.jobDetails !== undefined)
+      update.job_details = patch.jobDetails ?? null;
+    if (patch.analyzedAt !== undefined)
+      update.analyzed_at = patch.analyzedAt ?? null;
     if (patch.appliedAt !== undefined) update.applied_at = patch.appliedAt;
     if (patch.notes !== undefined) update.notes = patch.notes;
     const doc = await ApplicationModel.findByIdAndUpdate(id, update, {

@@ -17,6 +17,7 @@ import type {
   MapFieldsResponse,
   ProfileFillData,
   ProfileSummary,
+  RetrackedApplication,
   TrackedApplication,
   Usage,
   UsageResponse,
@@ -31,6 +32,13 @@ type Screen =
 interface ReviewField {
   label: string;
   filled: boolean;
+}
+
+/** What an application points at after a Re-track, for the confirmation list. */
+interface AttachedSummary {
+  roleTitle: string;
+  company: string;
+  links: Array<{ url: string; primary: boolean }>;
 }
 
 /** Enough page text to be worth spending an AI action on. */
@@ -57,6 +65,7 @@ export function App() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [recent, setRecent] = useState<TrackedApplication[]>([]);
   const [showRetrack, setShowRetrack] = useState(false);
+  const [attached, setAttached] = useState<AttachedSummary | null>(null);
   const [review, setReview] = useState<ReviewField[]>([]);
   const [busy, setBusy] = useState<
     null | "analyze" | "quick" | "ai" | "track" | "retrack"
@@ -334,6 +343,7 @@ export function App() {
           fitScore: analysis?.fitScore ?? null,
           fitReasoning: analysis?.fitReasoning ?? null,
           filterResults: analysis?.filterResults ?? [],
+          jobDetails: analysis?.jobDetails ?? null,
           // Recorded even though the user went ahead — the dashboard should be
           // able to show that this application was against their own rules.
           exclusionMatches: exclusionHits,
@@ -375,11 +385,25 @@ export function App() {
     setError(null);
     setBusy("retrack");
     try {
-      await api(`/api/applications/${applicationId}/retrack`, {
-        body: { url: tabUrl },
-      });
+      const { application } = await api<{ application: RetrackedApplication }>(
+        `/api/applications/${applicationId}/retrack`,
+        { body: { url: tabUrl } },
+      );
       setShowRetrack(false);
-      setNotice("Added this page to that application.");
+      setNotice(null);
+      // Show what the application now points at: re-track is otherwise a
+      // silent write, and "did that attach?" is the obvious next question.
+      setAttached({
+        roleTitle: application.roleTitle,
+        company: application.company,
+        links: [
+          ...(application.url ? [{ url: application.url, primary: true }] : []),
+          ...application.additionalLinks.map((link) => ({
+            url: link.url,
+            primary: false,
+          })),
+        ],
+      });
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -576,6 +600,35 @@ export function App() {
       )}
       {notice && !error && (
         <p className="text-muted-foreground text-xs">{notice}</p>
+      )}
+
+      {attached && (
+        <div className="border-border flex flex-col gap-2 rounded-lg border p-3">
+          <p className="text-xs font-medium">
+            Attached to {attached.roleTitle} — {attached.company}
+          </p>
+          <ul className="flex flex-col gap-1">
+            {attached.links.map((link) => (
+              <li key={link.url} className="text-xs">
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary block truncate hover:underline"
+                  title={link.url}
+                >
+                  {link.url}
+                </a>
+                <span className="text-muted-foreground">
+                  {link.primary ? "primary" : "re-tracked"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <button className="btn-secondary" onClick={() => setAttached(null)}>
+            Done
+          </button>
+        </div>
       )}
 
       {showRetrack ? (

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ApplicationDetails } from "@/components/dashboard/ApplicationDetails";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Spinner } from "@/components/shared/Spinner";
@@ -24,9 +25,32 @@ import { APPLICATION_STATUSES } from "@/lib/db/schema";
 interface AdditionalLink {
   url: string;
   platform: string | null;
+  addedAt: string | null;
 }
 
-interface Row {
+interface FilterResult {
+  label: string;
+  verdict: string;
+}
+
+interface ExclusionMatch {
+  kind: "company" | "keyword";
+  value: string;
+}
+
+interface JobDetails {
+  location: string | null;
+  workArrangement: string | null;
+  employmentType: string | null;
+  seniority: string | null;
+  salaryText: string | null;
+  sponsorshipMentioned: "yes" | "no" | null;
+  postedAt: string | null;
+  requiredSkills: string[];
+}
+
+/** One row of `/api/applications`; the detail panel renders the same shape. */
+export interface ApplicationRow {
   id: string;
   company: string;
   roleTitle: string;
@@ -36,9 +60,17 @@ interface Row {
   status: string;
   fitScore: number | null;
   fitReasoning: string | null;
+  filterResults: FilterResult[];
+  exclusionMatches: ExclusionMatch[];
+  jobDetails: JobDetails | null;
+  analyzedAt: string | null;
   appliedAt: string;
+  createdAt: string;
+  updatedAt: string;
   notes: string;
 }
+
+type Row = ApplicationRow;
 
 type SortKey = "company" | "roleTitle" | "status" | "fitScore" | "appliedAt";
 
@@ -65,6 +97,7 @@ export function ApplicationsTable({
 }: ApplicationsTableProps = {}) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("appliedAt");
@@ -166,7 +199,17 @@ export function ApplicationsTable({
         "Role",
         "Status",
         "Fit Score",
-        "Date Applied",
+        "Fit Reasoning",
+        "Applied",
+        "Location",
+        "Arrangement",
+        "Employment Type",
+        "Seniority",
+        "Salary",
+        "Sponsorship",
+        "Required Skills",
+        "Filter Verdicts",
+        "Exclusions Hit",
         "Platform",
         "URL",
         "Other links",
@@ -180,7 +223,17 @@ export function ApplicationsTable({
           r.roleTitle,
           r.status,
           r.fitScore,
-          new Date(r.appliedAt).toISOString().slice(0, 10),
+          r.fitReasoning,
+          new Date(r.appliedAt).toISOString(),
+          r.jobDetails?.location ?? null,
+          r.jobDetails?.workArrangement ?? null,
+          r.jobDetails?.employmentType ?? null,
+          r.jobDetails?.seniority ?? null,
+          r.jobDetails?.salaryText ?? null,
+          r.jobDetails?.sponsorshipMentioned ?? null,
+          r.jobDetails?.requiredSkills.join(" | ") ?? null,
+          r.filterResults.map((f) => `${f.label}: ${f.verdict}`).join(" | "),
+          r.exclusionMatches.map((m) => m.value).join(" | "),
           r.platform,
           r.url,
           r.additionalLinks.map((l) => l.url).join(" | "),
@@ -323,147 +376,180 @@ export function ApplicationsTable({
                   }
                 />
               </TableHead>
+              <TableHead className="w-8" />
               <TableHead>{header("company", "Company")}</TableHead>
               <TableHead>{header("roleTitle", "Role")}</TableHead>
               <TableHead>{header("status", "Status")}</TableHead>
               <TableHead>{header("fitScore", "Fit")}</TableHead>
               <TableHead>{header("appliedAt", "Applied")}</TableHead>
-              <TableHead>Notes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {visible.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell>
-                  <Checkbox
-                    checked={selected.has(row.id)}
-                    aria-label={`Select ${row.company}`}
-                    onChange={(e) =>
-                      setSelected((prev) => {
-                        const next = new Set(prev);
-                        if (e.target.checked) next.add(row.id);
-                        else next.delete(row.id);
-                        return next;
-                      })
-                    }
-                  />
-                </TableCell>
-                <TableCell className="min-w-36">
-                  <Input
-                    className="h-8"
-                    value={row.company}
-                    onChange={(e) =>
-                      patchLocal(row.id, { company: e.target.value })
-                    }
-                    onBlur={(e) =>
-                      void save(row.id, { company: e.target.value })
-                    }
-                  />
-                </TableCell>
-                <TableCell className="min-w-44">
-                  <div className="flex items-center gap-1">
-                    <Input
-                      className="h-8"
-                      value={row.roleTitle}
+              <Fragment key={row.id}>
+                <TableRow>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(row.id)}
+                      aria-label={`Select ${row.company}`}
                       onChange={(e) =>
-                        patchLocal(row.id, { roleTitle: e.target.value })
-                      }
-                      onBlur={(e) =>
-                        void save(row.id, { roleTitle: e.target.value })
+                        setSelected((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(row.id);
+                          else next.delete(row.id);
+                          return next;
+                        })
                       }
                     />
-                    {row.url && (
-                      <a
-                        href={row.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-primary shrink-0 text-xs hover:underline"
-                        aria-label={
-                          row.platform
-                            ? `Open job posting on ${row.platform}`
-                            : "Open job posting"
+                  </TableCell>
+                  <TableCell>
+                    <button
+                      type="button"
+                      aria-expanded={expanded.has(row.id)}
+                      aria-label={`${expanded.has(row.id) ? "Hide" : "Show"} details for ${row.roleTitle} at ${row.company}`}
+                      className="text-muted-foreground hover:text-foreground px-1 text-xs"
+                      onClick={() =>
+                        setExpanded((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(row.id)) next.delete(row.id);
+                          else next.add(row.id);
+                          return next;
+                        })
+                      }
+                    >
+                      {expanded.has(row.id) ? "▾" : "▸"}
+                    </button>
+                  </TableCell>
+                  <TableCell className="min-w-36">
+                    <Input
+                      className="h-8"
+                      value={row.company}
+                      onChange={(e) =>
+                        patchLocal(row.id, { company: e.target.value })
+                      }
+                      onBlur={(e) =>
+                        void save(row.id, { company: e.target.value })
+                      }
+                    />
+                  </TableCell>
+                  <TableCell className="min-w-44">
+                    <div className="flex items-center gap-1">
+                      <Input
+                        className="h-8"
+                        value={row.roleTitle}
+                        onChange={(e) =>
+                          patchLocal(row.id, { roleTitle: e.target.value })
                         }
-                        title={row.platform ?? undefined}
-                      >
-                        ↗
-                      </a>
-                    )}
-                    {row.additionalLinks.length > 0 && (
-                      <span
-                        className="text-muted-foreground shrink-0 text-xs"
-                        title={row.additionalLinks
-                          .map((l) => l.platform ?? l.url)
-                          .join("\n")}
-                      >
-                        +{row.additionalLinks.length}
-                      </span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Select
-                    className="h-8 w-36"
-                    value={row.status}
-                    onChange={(e) => {
-                      patchLocal(row.id, { status: e.target.value });
-                      void save(row.id, { status: e.target.value });
-                    }}
-                  >
-                    {APPLICATION_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    className="h-8 w-16"
-                    title={row.fitReasoning ?? undefined}
-                    value={row.fitScore ?? ""}
-                    onChange={(e) =>
-                      patchLocal(row.id, {
-                        fitScore:
-                          e.target.value === "" ? null : Number(e.target.value),
-                      })
-                    }
-                    onBlur={(e) =>
-                      void save(row.id, {
-                        fitScore:
-                          e.target.value === "" ? null : Number(e.target.value),
-                      })
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    type="date"
-                    className="h-8 w-36"
-                    value={new Date(row.appliedAt).toISOString().slice(0, 10)}
-                    onChange={(e) => {
-                      if (!e.target.value) return;
-                      patchLocal(row.id, {
-                        appliedAt: new Date(e.target.value).toISOString(),
-                      });
-                      void save(row.id, { appliedAt: e.target.value });
-                    }}
-                  />
-                </TableCell>
-                <TableCell className="min-w-44">
-                  <Input
-                    className="h-8"
-                    value={row.notes}
-                    placeholder="Notes…"
-                    onChange={(e) =>
-                      patchLocal(row.id, { notes: e.target.value })
-                    }
-                    onBlur={(e) => void save(row.id, { notes: e.target.value })}
-                  />
-                </TableCell>
-              </TableRow>
+                        onBlur={(e) =>
+                          void save(row.id, { roleTitle: e.target.value })
+                        }
+                      />
+                      {row.url && (
+                        <a
+                          href={row.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary shrink-0 text-xs hover:underline"
+                          aria-label={
+                            row.platform
+                              ? `Open job posting on ${row.platform}`
+                              : "Open job posting"
+                          }
+                          title={row.platform ?? undefined}
+                        >
+                          ↗
+                        </a>
+                      )}
+                      {row.additionalLinks.length > 0 && (
+                        <span
+                          className="text-muted-foreground shrink-0 text-xs"
+                          title={row.additionalLinks
+                            .map((l) => l.platform ?? l.url)
+                            .join("\n")}
+                        >
+                          +{row.additionalLinks.length}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      className="h-8 w-36"
+                      value={row.status}
+                      onChange={(e) => {
+                        patchLocal(row.id, { status: e.target.value });
+                        void save(row.id, { status: e.target.value });
+                      }}
+                    >
+                      {APPLICATION_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      className="h-8 w-16"
+                      title={row.fitReasoning ?? undefined}
+                      value={row.fitScore ?? ""}
+                      onChange={(e) =>
+                        patchLocal(row.id, {
+                          fitScore:
+                            e.target.value === ""
+                              ? null
+                              : Number(e.target.value),
+                        })
+                      }
+                      onBlur={(e) =>
+                        void save(row.id, {
+                          fitScore:
+                            e.target.value === ""
+                              ? null
+                              : Number(e.target.value),
+                        })
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="date"
+                      className="h-8 w-36"
+                      value={new Date(row.appliedAt).toISOString().slice(0, 10)}
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        patchLocal(row.id, {
+                          appliedAt: new Date(e.target.value).toISOString(),
+                        });
+                        void save(row.id, { appliedAt: e.target.value });
+                      }}
+                    />
+                    <span className="text-muted-foreground mt-0.5 block text-xs">
+                      {new Date(row.appliedAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      {row.additionalLinks.length > 0
+                        ? ` · ${row.additionalLinks.length + (row.url ? 1 : 0)} links`
+                        : ""}
+                    </span>
+                  </TableCell>
+                </TableRow>
+                {expanded.has(row.id) && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="p-0">
+                      <ApplicationDetails
+                        row={row}
+                        onNotesChange={(notes) => patchLocal(row.id, { notes })}
+                        onNotesCommit={(notes) => void save(row.id, { notes })}
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
             ))}
           </TableBody>
         </Table>

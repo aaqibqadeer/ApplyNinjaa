@@ -132,5 +132,6 @@ feature needs the same pattern.
 | `FilterToggles`     | `components/filters/FilterToggles.tsx`       | Valid Job filter toggles (admin defaults + own custom, add/remove). Used by onboarding step 4 and `/settings/filters`.      |
 | `ExclusionLists`    | `components/filters/ExclusionLists.tsx`      | Excluded-companies and excluded-keywords chip lists (add/remove). Hard rules matched in code, not by the AI. Used by `/settings/filters`. |
 | `ApplicationsTable` | `components/dashboard/ApplicationsTable.tsx` | Fully inline-editable tracker table: sort, search + status filter, bulk mark-rejected/delete, CSV export.                   |
+| `ApplicationDetails` | `components/dashboard/ApplicationDetails.tsx` | The expandable row under an application: fit reasoning, filter verdicts, exclusion hits, what the AI read off the posting, every attached URL (primary + re-tracked), notes and timestamps. |
 | `OnboardingWizard`  | `components/onboarding/OnboardingWizard.tsx` | 5-step onboarding (welcome → resume parse → review → filters → done) with progress bar.                                     |
 | `VerifyEmailBanner` | `components/auth/VerifyEmailBanner.tsx`      | Resend-verification nudge for unverified accounts (verification starts the free trial).                                     |
