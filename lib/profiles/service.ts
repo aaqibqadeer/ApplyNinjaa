@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 
+import { features } from "@/config/features";
 import type { Session } from "@/lib/auth/types";
 import { decryptField, encryptField } from "@/lib/crypto/field-encryption";
 import {
@@ -27,7 +28,7 @@ import {
   type ProfileEeo,
   type UpdateProfile,
 } from "@/lib/db";
-import { objectUrlFor } from "@/lib/storage/mongodb/adapter";
+import { storage } from "@/lib/storage";
 import { enforceProfileLimit } from "@/lib/usage/enforce";
 
 class ProfileError extends Error {
@@ -194,7 +195,11 @@ export interface ProfileFillData {
     filename: string;
     contentType: string;
     size: number;
-    /** Same-origin path to fetch the bytes from (Bearer-capable). */
+    /**
+     * Where to fetch the bytes. Provider-dependent: a same-origin path for the
+     * Mongo/GridFS provider (send the Bearer token), an absolute presigned URL
+     * for S3. Callers must handle both — see the extension's `loadAttachments`.
+     */
     url: string;
   }>;
   /** Most recent role/school only — forms ask for "current", not a history. */
@@ -213,6 +218,19 @@ export async function getProfileFillData(
   const latestRole =
     profile.experience.find((e) => e.current) ?? profile.experience[0];
   const latestSchool = profile.education[0];
+  // Through the adapter, never a provider-specific URL builder — S3 hands back
+  // a presigned URL here where GridFS hands back an app route.
+  const documents = features.storage
+    ? await Promise.all(
+        profile.documents.map(async (document) => ({
+          kind: document.kind,
+          filename: document.filename,
+          contentType: document.contentType,
+          size: document.size,
+          url: (await storage.getDownloadUrl(document.key)).url,
+        })),
+      )
+    : [];
   return {
     id: profile.id,
     name: profile.name,
@@ -223,13 +241,7 @@ export async function getProfileFillData(
     employmentTypes: profile.employmentTypes,
     salaryExpectation: profile.salaryExpectation ?? null,
     customFields: profile.customFields,
-    documents: profile.documents.map((document) => ({
-      kind: document.kind,
-      filename: document.filename,
-      contentType: document.contentType,
-      size: document.size,
-      url: objectUrlFor(document.key),
-    })),
+    documents,
     currentTitle: latestRole?.title ?? null,
     currentCompany: latestRole?.company ?? null,
     latestSchool: latestSchool?.school ?? null,

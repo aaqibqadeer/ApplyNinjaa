@@ -179,15 +179,16 @@ this fork — `multiTenant` is off, so each user has one silent default org),
 and each table shipped with its Zod schema (`lib/db/schema.ts`), adapter
 methods, and seed entry in the same commit (§1.4).
 
-| Entity            | Collection             | Tenant-scoped? | Notes                                                                                                                                                     |
-| ----------------- | ---------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Profile           | `profiles`             | Yes            | Multiple per user, unique `(user_id, name)`. Parsed resume data; `eeo` holds **field-level-encrypted ciphertext** only (lib/crypto).                      |
-| ProfileDomainPref | `profile_domain_prefs` | Yes            | Last-used profile per job-site domain, unique `(user_id, domain)`.                                                                                        |
-| Application       | `applications`         | Yes            | Tracked jobs; status enum (10 values), user-editable `fit_score`, denormalized `filter_results`. Indexed `(user_id, applied_at)` and `(user_id, status)`. |
-| JobFilter         | `job_filters`          | No (mixed)     | `type: admin` = platform master list (no owner); `type: user` = one user's custom filter (`owner_id`).                                                    |
-| UserFilterSetting | `user_filter_settings` | Yes            | Per-user enable/disable of filters, unique `(user_id, filter_id)`.                                                                                        |
-| AdminAction       | `admin_actions`        | No             | Append-only audit log (who/what/when/why); reads newest-first.                                                                                            |
-| GmailScan         | `gmail_scans`          | Yes            | Manual scan runs + per-email proposals; nothing writes to applications until a proposal is user-approved.                                                 |
+| Entity            | Collection             | Tenant-scoped? | Notes                                                                                                                                                                                                                                                     |
+| ----------------- | ---------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Profile           | `profiles`             | Yes            | Multiple per user, unique `(user_id, name)`. Parsed resume data; `eeo` holds **field-level-encrypted ciphertext** only (lib/crypto); `documents` holds storage keys for the saved CV / cover letter (one per kind).                                       |
+| ProfileDomainPref | `profile_domain_prefs` | Yes            | Last-used profile per job-site domain, unique `(user_id, domain)`.                                                                                                                                                                                        |
+| Application       | `applications`         | Yes            | Tracked jobs; status enum (10 values), user-editable `fit_score`, denormalized `filter_results` + `exclusion_matches`, `job_details` (what the analysis read off the posting) and `analyzed_at`. Indexed `(user_id, applied_at)` and `(user_id, status)`. |
+| JobFilter         | `job_filters`          | No (mixed)     | `type: admin` = platform master list (no owner); `type: user` = one user's custom filter (`owner_id`).                                                                                                                                                    |
+| UserFilterSetting | `user_filter_settings` | Yes            | Per-user enable/disable of filters, unique `(user_id, filter_id)`.                                                                                                                                                                                        |
+| ExclusionRule     | `exclusion_rules`      | Yes            | Per-user company/keyword blocklists, unique `(user_id, kind, value)` so a re-add is idempotent. Matched in code, never by the AI — see below.                                                                                                             |
+| AdminAction       | `admin_actions`        | No             | Append-only audit log (who/what/when/why); reads newest-first.                                                                                                                                                                                            |
+| GmailScan         | `gmail_scans`          | Yes            | Manual scan runs + per-email proposals; nothing writes to applications until a proposal is user-approved.                                                                                                                                                 |
 
 User extensions: `is_support_admin` (second platform admin tier — never merged
 with `is_super_admin` checks), `status` (active/suspended/banned/
@@ -199,6 +200,34 @@ verified email), `deleted_at` (30-day soft delete), `marketing_emails_enabled`
 Plan extensions: unique `slug` (stable lookup — `free`/`starter`/`pro`/
 `premium`; names and prices are admin-editable, slugs are create-only) and the
 `limits.aiCallsPerMonth` cap read by the AI quota enforcement.
+
+### Exclusions vs filters
+
+A **filter** is a question the AI answers Yes / No / Neutral about a posting.
+An **exclusion** is the user's own flat rule ("never Acme", "never anything
+that says unpaid"), so it is matched deterministically in
+`lib/exclusions/service.ts` and mirrored for offline use in
+`extension/src/lib/exclusions.ts`.
+
+That difference is the point, not an optimisation: because matching needs no
+model call, the extension can warn on a posting the user has not spent an AI
+action on, and an exclusion can never come back "Neutral". The two matchers are
+duplicated rather than shared (the same precedent as `quick-fill.ts`) — keep
+them in step.
+
+Creating exclusions reuses the `customFilters` entitlement rather than adding a
+`limits` key: both are "screen for my own deal-breakers", and a plan that
+unlocks one should unlock the other.
+
+### Super-admin plan assignment
+
+`lib/payments/admin-plan.ts` upserts the local subscription row directly and
+**never calls Stripe**. The paths it serves — comping an account, fixing a
+support case, testing a tier on your own login — must not move real money from
+an admin click, and must work for an org with no Stripe customer at all. When
+a live `stripe_subscription_id` exists the UI says billing is unaffected, and
+the `plan_assign` audit row records that Stripe was left alone; cancelling
+stays a separate explicit action.
 
 Operational data (AI usage counters, short-window rate limits) deliberately
 does NOT go through this adapter — it lives in the Mongo-only `lib/usage/`

@@ -77,9 +77,13 @@ export async function loadAttachments(
   const files: AttachableFile[] = [];
   for (const { field, document } of pairs) {
     if (document.size > MAX_ATTACH_BYTES) continue;
-    const res = await fetch(`${API_ORIGIN}${document.url}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    // The URL is provider-dependent: an app-route path for GridFS (needs our
+    // token) or an absolute presigned S3 URL (must NOT carry it).
+    const absolute = /^https?:/.test(document.url);
+    const res = await fetch(
+      absolute ? document.url : `${API_ORIGIN}${document.url}`,
+      absolute ? {} : { headers: { Authorization: `Bearer ${token}` } },
+    );
     if (!res.ok) continue;
     files.push({
       id: field.id,

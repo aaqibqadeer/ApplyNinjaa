@@ -3,9 +3,10 @@
 > **Read this first, every session** (CLAUDE.md §11). Living **snapshot** —
 > overwritten, not appended. Keep it terse. Update at the end of every phase.
 
-_Last updated: 2026-07-28 — **v1.1 complete** (bug fixes, tier entitlements,
-profile saved answers, extension redesign, filter semantics + /help, violet
-palette, production roadmap + CI). Not yet run against a live database._
+_Last updated: 2026-08-08 — **Phase 3 complete** (left sidebar, résumé-parse
+loaders, super-admin plan assignment, exclusions, richer application tracker,
+profile documents, extension sign in/out + manual field fill). Not yet run
+against a live database._
 
 ## What this fork is
 
@@ -81,7 +82,30 @@ H4-EAD). v1 shipped on `staging`; v1.1 work is on
 - **Extension**: opening the popup costs ZERO AI calls. Six actions; only
   Check Fit Score and AI Fill bill. Quick Fill matches offline in the popup
   (`extension/src/lib/quick-fill.ts`) so it survives the cap. Re-track appends
-  to `applications.additionalLinks`, primary `url` unchanged.
+  to `applications.additionalLinks`, primary `url` unchanged, and then lists
+  every link the application points at. Sign out clears the stored token only
+  (the dashboard cookie is a separate session). Context menu is nested:
+  AI fill (1 action) or Fill manually → profile → field (free); the tree is
+  prebuilt from `/api/profiles/fill-data` and mirrored in
+  `chrome.storage.session` (MV3 kills idle workers).
+- **Exclusions** (`exclusion_rules`): per-user company + keyword blocklists,
+  matched deterministically in `lib/exclusions/service.ts` and mirrored offline
+  in the popup, so a warning costs no AI action. Gated by the `customFilters`
+  entitlement. Popup shows one banner; filter verdicts collapsed to a tally.
+- **Application tracker**: `analyzeJob` also returns `jobDetails` (location,
+  arrangement, employment type, seniority, salary text, sponsorship, posted
+  date, required skills) in the same billable call; rows expand into
+  `ApplicationDetails` showing reasoning, verdicts, exclusion hits, every
+  attached URL and timestamps. CSV export carries all of it.
+- **Storage is ON**, `STORAGE_PROVIDER=mongodb` — new GridFS provider behind
+  the existing `StorageAdapter` (no object-store credentials needed; S3 still
+  selectable). Profiles hold a CV + cover letter; Quick/AI Fill attach them to
+  a form's file inputs via `attachFiles` (base64 → `DataTransfer` in the page).
+- **Super admin can assign any plan** to any org including their own
+  (`lib/payments/admin-plan.ts`) — local grant, never a Stripe write, audited
+  as `plan_assign` with a required reason.
+- **Layout**: signed-in nav is a left sidebar (`AppShell` + `AppSidebar`);
+  pages run full width, forms keep a reading column.
 - **Hosting**: Railway + MongoDB Atlas. CI in `.github/workflows/ci.yml`; no
   CD workflow by design (Railway's GitHub integration + "Wait for CI").
   Roadmap: `docs/guides/production-roadmap.md`.
@@ -98,10 +122,12 @@ H4-EAD). v1 shipped on `staging`; v1.1 work is on
   dated entry in `decisions.md`: PDF upload crashed (pdfjs bundling), creating
   a second profile crashed (client-reference proxy spread), and editing a
   profile silently wiped `projects`. Everything else below still stands.
-- **v1.1 features are typecheck/lint/build-verified only.** No entitlement
-  gate, seed backfill, Quick Fill match, or Re-track has run against a live
-  database or a real page. Re-run `npm run seed` before testing tiers — the
-  new limit keys only reach an existing database that way.
+- **v1.1 and Phase 3 features are typecheck/lint/build-verified only.** No
+  entitlement gate, seed backfill, Quick Fill match, Re-track, exclusion match,
+  document upload/attach, plan assignment or manual-fill menu has run against a
+  live database or a real page. Re-run `npm run seed` before testing — new plan
+  limit keys and the example exclusions only reach an existing database that
+  way.
 - **Never runtime-verified against a live MongoDB** — no Docker/mongod in the
   build sandbox (proxy blocks mongo binary downloads). First run needs:
   `.env.local` (see .env.example), `docker compose up -d`, `npm run seed`,

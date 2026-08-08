@@ -5,6 +5,43 @@
 > Recent phases stay here; older entries live in
 > [`decisions-archive.md`](./decisions-archive.md). Keep this file small.
 
+## 2026-08-08 — Phase 3: sidebar, exclusions, richer tracker, documents
+
+- **Exclusions are a separate table from filters, matched in code.** A filter
+  asks the AI a question and can answer "Neutral"; an exclusion is a flat user
+  rule. Deterministic matching is what lets the popup warn on a page _before_
+  any AI action is spent — and the matcher is deliberately duplicated in
+  `extension/src/lib/exclusions.ts` (the `quick-fill.ts` precedent). Keep the
+  two in step. They reuse the `customFilters` entitlement rather than adding a
+  `limits` key.
+- **Popup crowding was solved by collapsing, not by adding.** Exclusions get a
+  single red banner (max 2 reasons + "+N more") and the filter list became a
+  ✓/✗/○ tally inside a `<details>`. Net result: the popup is shorter than it
+  was despite carrying more.
+- **`jobDetails` rides along in the existing `analyzeJob` call.** A second call
+  would have doubled what an analysis costs the user for data the model has
+  already read. Every field is nullable and "not stated" is recorded as null —
+  the same silence-isn't-a-verdict rule the filter prompt enforces.
+- **Super-admin plan assignment is a local grant, never a Stripe write.** See
+  `data-layer.md`; the audit row records that Stripe was left alone. Super
+  admins may target their own org — that is the point, and it is audited.
+- **Storage is now ON with a new `mongodb` (GridFS) provider.** This fork has
+  no object-store credentials, so an S3-only storage layer would have shipped a
+  feature nobody could enable. GridFS can't presign, so `getUploadUrl`/
+  `getDownloadUrl` return a same-origin route and authority comes from the
+  session plus a key-prefix check instead of from the URL. S3 stays selectable.
+- **File inputs need a `File` built in the PAGE's realm.** `value` is
+  read-only, so `DataTransfer` is the only way in, and `executeScript` args are
+  JSON — hence base64 bytes fetched in the popup and rebuilt by `attachFiles`.
+- **Context menus are built ahead of time, not on hover.** The manual-fill
+  submenu comes from one batched `/api/profiles/fill-data` read, rebuilt on
+  install/startup/popup-open. Its values are mirrored into
+  `chrome.storage.session` because MV3 kills an idle worker in ~30s while
+  Chrome keeps the menu — an in-memory map alone makes the first click after a
+  pause silently do nothing.
+- **Header became a left sidebar** so data-dense pages get the full width;
+  `AppNav` grew an `orientation` prop rather than a second component.
+
 ## 2026-07-28 — v1.1: tiers, extension redesign, branding, hosting
 
 - **Numeric limits must not go through `hasAccess()`.** Its `toBoolean`

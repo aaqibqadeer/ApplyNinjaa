@@ -168,11 +168,13 @@ The app reads its settings from a file called `.env.local`. Create it by copying
 the example:
 
 **Mac:**
+
 ```bash
 cp .env.example .env.local
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 Copy-Item .env.example .env.local
 ```
@@ -255,10 +257,10 @@ plans (Free/Starter/Pro/Premium), six job filters, and a password.
 
 This creates two test accounts:
 
-| Email | Password | Role |
-| --- | --- | --- |
+| Email               | Password       | Role                            |
+| ------------------- | -------------- | ------------------------------- |
 | `admin@example.com` | `Password123!` | Super admin (full admin access) |
-| `user@example.com` | `Password123!` | Normal user |
+| `user@example.com`  | `Password123!` | Normal user                     |
 
 > Safe to run again any time — it will not create duplicates.
 
@@ -378,7 +380,7 @@ One setup covers both. It is the longest section — allow 15 minutes.
 6. On **Scopes**, click **Add or Remove Scopes**. In the filter box, search for
    `gmail.readonly`. Tick the row `.../auth/gmail.readonly`. Click **Update**,
    then **Save and Continue**.
-   - *Skip this step if you only want the login button, not Gmail scanning.*
+   - _Skip this step if you only want the login button, not Gmail scanning._
 7. On **Test users**, click **Add Users** and enter **the Gmail address you will
    test with**. **Save and Continue**.
    - ⚠️ Skipping this causes "app is blocked" errors later.
@@ -493,10 +495,10 @@ Everything here uses Stripe **test mode** — fake cards, no real money.
 
 **Test card numbers** (use any future expiry date, any 3-digit CVC, any ZIP):
 
-| Card number | What it does |
-| --- | --- |
-| `4242 4242 4242 4242` | Payment succeeds |
-| `4000 0000 0000 0002` | Payment declined |
+| Card number           | What it does                  |
+| --------------------- | ----------------------------- |
+| `4242 4242 4242 4242` | Payment succeeds              |
+| `4000 0000 0000 0002` | Payment declined              |
 | `4000 0025 0000 3155` | Requires authentication popup |
 
 ---
@@ -546,6 +548,7 @@ reporting.
 ## A. Homepage and public pages
 
 ### A1 🟢 Homepage loads
+
 1. Go to **http://localhost:3000**
 
 **Expected:** Headline about not applying to jobs that will say no. Sections for
@@ -556,12 +559,14 @@ Testimonials, and a footer.
 > did not run successfully.
 
 ### A2 🟢 Pricing shows the right numbers
+
 1. On the homepage, scroll to Pricing.
 
 **Expected:** Free $0 / 5 AI actions · Starter $3.99 / 50 · Pro $6.99 / 150 ·
 Premium $9.99 / 300. Pro is marked "Popular".
 
 ### A3 🟣 Monthly/annual toggle
+
 1. In the Pricing section, click the **Annual** toggle.
 
 **Expected:** Prices switch to yearly (about 20% cheaper than 12× monthly:
@@ -570,17 +575,20 @@ $38.30 / $67.10 / $95.90). Free stays $0.
 > The toggle only appears when Stripe annual billing is switched on.
 
 ### A4 🟢 Cookie banner
+
 1. Open the site in a **new Incognito window** (`Cmd/Ctrl + Shift + N`).
 
 **Expected:** A cookie banner appears at the bottom with Accept and Reject.
 Clicking either dismisses it. Reloading the page does **not** bring it back.
 
 ### A5 🟢 Legal pages
+
 1. In the footer, click **Privacy Policy**, then **Terms of Service**, then
    **Cookie Policy**.
 
 **Expected:** All three open and have real content (not "coming soon"). Specific
 things to confirm are present:
+
 - Privacy: a section on EEO/demographic data being encrypted and optional; a
   Gmail section mentioning **Google API Services User Data Policy** and
   **Limited Use**; a 30-day deletion section.
@@ -588,6 +596,7 @@ things to confirm are present:
   and the product does not apply to jobs on your behalf.
 
 ### A6 🟢 Dark mode
+
 1. Click the sun/moon icon in the top-right of the header.
 
 **Expected:** The site switches between light and dark. Colours stay violet,
@@ -599,6 +608,7 @@ and there is no white flash before dark mode appears.
 ## B. Accounts and login
 
 ### B1 🟢 Sign up
+
 1. Click **Get started** / go to http://localhost:3000/signup
 2. Enter a new email (e.g. `test1@example.com`) and a password of at least 8
    characters. Submit.
@@ -607,17 +617,20 @@ and there is no white flash before dark mode appears.
 **"Verify your email"**.
 
 ### B2 🟢 Try a weak password
+
 1. Sign out (button in the header). Go to signup and try a 3-character password.
 
 **Expected:** A clear error like "Password must be at least 8 characters". No
 account is created.
 
 ### B3 🟢 Duplicate email is rejected
+
 1. Try signing up again with the **same** email as B1.
 
 **Expected:** An error saying the user already exists. No duplicate account.
 
 ### B4 🟢 Verify your email (this also starts the trial)
+
 1. Look at the terminal running `npm run dev`.
 2. Find a block like `[email → test1@example.com] Verify your ApplyNinjaa email`
    containing a long link starting with `http://localhost:3000/api/auth/verify-email?token=...`
@@ -629,11 +642,13 @@ account is created.
 banner is **gone**.
 
 ### B5 🟢 Resend verification
+
 1. Create another new account. On the dashboard banner, click **Resend email**.
 
 **Expected:** Button shows "Sent ✓" and a fresh link appears in the terminal.
 
 ### B6 🟢 Log out and back in
+
 1. Click **Log out**. Then log in with the account from B1.
 
 **Expected:** Logging out returns you to the login page. Logging back in returns
@@ -641,12 +656,14 @@ you to the dashboard. A **wrong password** gives "Invalid email or password"
 (and notably does **not** reveal whether the email exists).
 
 ### B7 🟢 Protected pages require login
+
 1. While logged out, paste **http://localhost:3000/dashboard** into the address
    bar.
 
 **Expected:** You are sent to the login page, not the dashboard.
 
 ### B8 🟠 Google sign-in
+
 1. Log out. On the login page click **Continue with Google**. Complete the
    Google prompts.
 
@@ -654,6 +671,7 @@ you to the dashboard. A **wrong password** gives "Invalid email or password"
 your email, there is **no** "Verify your email" banner.
 
 ### B9 🟠 LinkedIn sign-in
+
 Same as B8 using **Continue with LinkedIn**.
 
 ---
@@ -661,6 +679,7 @@ Same as B8 using **Continue with LinkedIn**.
 ## C. Onboarding and profiles
 
 ### C1 🔵 Resume upload and parsing
+
 1. Log in as your test user. Go to **http://localhost:3000/onboarding**
 2. Step 1 (Welcome): click **Continue**.
 3. Step 2: click the upload box and choose a **PDF or DOCX resume**.
@@ -675,15 +694,18 @@ history, education, skills.
 > credit.
 
 ### C2 🟢 Everything is editable
+
 1. On Step 3, change several fields — name, a job title, add a skill.
 
 **Expected:** Every field can be edited. You can add and remove experience and
 education entries with the Add/Remove buttons.
 
 ### C3 🟢 EEO section is genuinely optional
+
 1. Scroll to the box about EEO/demographic answers.
 
 **Expected — check all of these:**
+
 - The consent checkbox is **NOT ticked** by default.
 - The demographic dropdowns are **hidden** until you tick it.
 - The wording explains the data is encrypted and optional.
@@ -691,11 +713,13 @@ education entries with the Add/Remove buttons.
   disability status, each including a **"Prefer not to say"** option.
 
 ### C4 🟢 Save the profile
+
 1. Give the profile a name (e.g. "Primary"), then click **Save & continue**.
 
 **Expected:** You move to Step 4 (filters).
 
 ### C5 🟢 Filters step
+
 1. On Step 4, review the list.
 
 **Expected:** Six filters appear — Visa Sponsorship Available, US Citizenship
@@ -705,11 +729,13 @@ Toggling one off works. Typing a custom filter and clicking **Add** adds it to
 the list with a Remove button.
 
 ### C6 🟢 Finish onboarding
+
 1. Click **Continue**, then on Step 5 click **Go to my dashboard**.
 
 **Expected:** The progress bar reached 100% and you land on the dashboard.
 
 ### C7 🟢 Multiple profiles
+
 1. Go to **Profiles** in the top menu → **New profile**.
 2. Name it "Backend" and fill in a couple of fields → **Create profile**.
 
@@ -717,11 +743,13 @@ the list with a Remove button.
 **Make default** on the other moves the badge.
 
 ### C8 🟢 Duplicate profile names are rejected
+
 1. Create another profile using an existing name.
 
 **Expected:** Error: you already have a profile with that name.
 
 ### C9 🟢 Delete a profile
+
 1. Click **Delete** on the "Backend" profile and confirm.
 
 **Expected:** A confirmation dialog appears first; after confirming, the profile
@@ -735,6 +763,7 @@ Complete Part 4 first, and be signed in at http://localhost:3000 in the same
 Chrome profile.
 
 ### D1 🟢 Popup opens
+
 1. Open any real job posting in Chrome (LinkedIn, Indeed, Greenhouse, Lever —
    any site).
 2. Click the ApplyNinjaa icon.
@@ -743,15 +772,18 @@ Chrome profile.
 you to sign in (it borrows your website session automatically).
 
 ### D2 🟢 Signed-out handling
+
 1. Log out on the website, then click the extension icon on a job page.
 
 **Expected:** The popup says to sign in and offers a **Sign in** button that
 opens the login page. Log back in afterwards.
 
 ### D3 🔵 Job analysis
+
 1. On a job posting page, open the popup and wait.
 
 **Expected:** Within ~30 seconds you see:
+
 - A **Fit score** out of 100 with a one-sentence explanation.
 - A **badge per enabled filter** reading Yes, No, or Neutral.
 - A usage counter in the header like `1/150 AI actions`.
@@ -760,12 +792,14 @@ Sanity-check the result: a job explicitly saying "we do not sponsor" should show
 **No** for Visa Sponsorship Available.
 
 ### D4 🔵 Results are cached per page
+
 1. Close the popup and immediately reopen it on the same job page.
 
 **Expected:** Results appear instantly and the AI counter does **not** increase.
-(Opening a *different* job does use one more.)
+(Opening a _different_ job does use one more.)
 
 ### D5 🔵 Autofill
+
 1. Open a page with an actual application **form** (e.g. click "Apply" on a
    Greenhouse/Lever posting).
 2. Open the popup, click **Autofill**.
@@ -778,6 +812,7 @@ field that was not filled or was low-confidence.
 **untouched** — it should never be auto-filled.
 
 ### D6 🔵 Right-click single field fill
+
 1. On a form, **click into** a single empty field (e.g. Phone).
 2. Right-click it → choose **Fill this field with ApplyNinjaa**.
 
@@ -785,14 +820,15 @@ field that was not filled or was low-confidence.
 notification appears at the bottom-right explaining so.
 
 ### D7 🟢 Track a job
+
 1. On a job posting, open the popup and click **Track**.
 
-**Expected:** The button changes to **Tracked ✓**.
-2. Go to http://localhost:3000/dashboard.
+**Expected:** The button changes to **Tracked ✓**. 2. Go to http://localhost:3000/dashboard.
 **Expected:** The job appears in the table with status **Applied**, and the
 company/role filled in.
 
 ### D8 🟢 Profile picker remembers per site
+
 1. Create a second profile (C7) if you deleted it.
 2. On a job page, use the popup's profile dropdown to pick the second profile.
 3. Close the popup, then reopen it on **another job on the same website**.
@@ -800,6 +836,7 @@ company/role filled in.
 **Expected:** The dropdown still shows the profile you chose for that site.
 
 ### D9 🟢 Dark mode in the popup
+
 1. Switch your **operating system** to dark mode (Mac: System Settings →
    Appearance; Windows: Settings → Personalisation → Colours).
 2. Open the popup.
@@ -811,18 +848,21 @@ company/role filled in.
 ## E. Applications dashboard
 
 ### E1 🟢 Table shows your applications
+
 Go to http://localhost:3000/dashboard.
 
 **Expected:** Columns for Company, Role, Status, Fit, Applied, Notes. With no
 applications yet, a friendly empty message appears instead.
 
 ### E2 🟢 Inline editing
+
 1. Click into the Company cell, change the text, then click elsewhere.
 2. Reload the page.
 
 **Expected:** The change persisted. The same works for Role, Notes, and the date.
 
 ### E3 🟢 Status dropdown has all ten values
+
 1. Open the Status dropdown on any row.
 
 **Expected:** Saved, Applied, OA/Assessment, Phone Screen, Interview, Final
@@ -830,31 +870,35 @@ Round, Offer, Rejected, Withdrawn, Ghosted. Changing it saves immediately
 (confirm with a reload).
 
 ### E4 🟢 You can override the AI's fit score
+
 1. Change the number in the **Fit** column to `99`. Click away. Reload.
 
 **Expected:** Your value stuck — the user's judgement wins over the AI's.
 
 ### E5 🟢 Sorting
+
 1. Click the **Company** header, then click it again.
 
 **Expected:** Rows sort A→Z, then Z→A (arrow indicator flips). Fit and Applied
 sort numerically/by date.
 
 ### E6 🟢 Search and filter
+
 1. Type a company name into the search box.
 2. Clear it, then pick a status in the status dropdown filter.
 
 **Expected:** The table narrows to matching rows only.
 
 ### E7 🟢 Bulk actions
+
 1. Tick the checkboxes on two rows.
 2. Click **Mark rejected**.
 
-**Expected:** Both rows change to Rejected.
-3. With rows still selected, click **Delete** and confirm.
+**Expected:** Both rows change to Rejected. 3. With rows still selected, click **Delete** and confirm.
 **Expected:** A confirmation appears first; the rows then disappear.
 
 ### E8 🟢 CSV export
+
 1. Click **Export CSV**.
 
 **Expected:** `applications.csv` downloads. Opening it in Excel/Numbers/Sheets
@@ -867,6 +911,7 @@ shows Company, Role, Status, Fit Score, Date Applied, URL, Notes.
 ## F. Usage limits and billing
 
 ### F1 🔵 Usage counter increases
+
 1. Note the counter in the extension popup (e.g. `3/150`).
 2. Analyze a new job posting.
 
@@ -893,12 +938,14 @@ Clicking Upgrade opens the billing page.
 **Track** jobs and edit the dashboard.
 
 ### F3 🟣 Billing page
+
 Go to http://localhost:3000/settings/billing.
 
 **Expected:** Your current plan; if you are in the trial, "free trial, N days
 left"; a usage bar showing used/total AI actions; and four plan cards.
 
 ### F4 🟣 Upgrade checkout
+
 1. On the billing page click **Upgrade** on Starter.
 2. Pay with card `4242 4242 4242 4242`, any future expiry, any CVC/ZIP.
 
@@ -911,16 +958,19 @@ allowance is 50.
 > and `STRIPE_WEBHOOK_SECRET` must match the one it printed.
 
 ### F5 🟣 Declined card
+
 1. Repeat F4 with card `4000 0000 0000 0002`.
 
 **Expected:** Stripe shows a decline message. Your plan does **not** change.
 
 ### F6 🟣 Customer portal
+
 1. On the billing page click **Manage billing**.
 
 **Expected:** Stripe's portal opens where you can update the card or cancel.
 
 ### F7 🟢 Trial countdown
+
 1. Sign in with an account that verified its email (B4) and open
    /settings/billing.
 
@@ -932,6 +982,7 @@ a note that no card is on file.
 ## G. Gmail scanning 🟠
 
 ### G1 Connect Gmail
+
 1. Go to **http://localhost:3000/settings/gmail**
 
 **Expected:** An explanation that access is read-only, only scans on demand, and
@@ -945,6 +996,7 @@ approving you return to the page, now showing your connected Gmail address.
 > "App is blocked"? Add your address as a Test User (3.3 step 7).
 
 ### G2 Run a scan
+
 1. Pick a date range covering a period when you received job-related emails
    (the default is the last 14 days).
 2. Click **Scan Now**.
@@ -954,6 +1006,7 @@ emails classified as interview / rejection / offer / assessment. Unrelated
 emails (newsletters, personal mail) are excluded.
 
 ### G3 Nothing changes without your approval (important test)
+
 1. Look at a proposal that matched one of your tracked applications.
 2. **Before clicking anything**, check that application's status on the
    dashboard. Note it.
@@ -964,12 +1017,14 @@ emails (newsletters, personal mail) are excluded.
 afterwards. This is the single most important Gmail behaviour to verify.
 
 ### G4 Dismiss a proposal
+
 1. Click **Dismiss** on another proposal.
 
 **Expected:** It is marked dismissed and the related application is **not**
 changed.
 
 ### G5 Disconnect
+
 1. Click **Disconnect**.
 
 **Expected:** The page returns to the "Connect Gmail" state.
@@ -981,12 +1036,14 @@ changed.
 Log in as **admin@example.com** / `Password123!`.
 
 ### H1 🟢 Admin access
+
 1. Click **Admin** in the top menu.
 
 **Expected:** An admin area with tabs: Overview, Users, Subscriptions (if Stripe
 is on), Plans, Filters, Audit log, Settings.
 
 ### H2 🟢 Normal users are locked out (important security test)
+
 1. Log out, log in as **user@example.com** / `Password123!`.
 2. **Expected:** There is **no** Admin link in the menu.
 3. Now paste **http://localhost:3000/admin** into the address bar.
@@ -995,26 +1052,29 @@ is on), Plans, Filters, Audit log, Settings.
 **http://localhost:3000/admin/users**. Same result.
 
 ### H3 🟢 User management
+
 Back as admin: **Admin → Users**.
 
 **Expected:** All accounts listed with plan, AI usage this month, and status.
 The search box filters by email/name.
 
 ### H4 🟢 Suspend blocks login
+
 1. On a test user's row click **Suspend**. A reason is **required** — type one
    and confirm.
 2. Log out and try to log in as that user.
 
-**Expected:** Login is refused with a message about the account being suspended.
-3. As admin, click **Reactivate** on that user; login works again.
+**Expected:** Login is refused with a message about the account being suspended. 3. As admin, click **Reactivate** on that user; login works again.
 
 ### H5 🟢 Audit log records everything
+
 1. Go to **Admin → Audit log**.
 
 **Expected:** Your suspend and reactivate actions appear with who did it, what
 they did, when, and the **reason you typed**.
 
 ### H6 🟢 Plan management
+
 1. Go to **Admin → Plans**. Click edit on Starter and change its description.
    Save.
 
@@ -1024,6 +1084,7 @@ they did, when, and the **reason you typed**.
 > editing the old one — existing subscribers keep the price they signed up at.
 
 ### H7 🟢 Filter master list
+
 1. Go to **Admin → Filters**. Add a new default filter, e.g. "Sponsorship
    mentioned in posting".
 
@@ -1035,16 +1096,17 @@ they did, when, and the **reason you typed**.
 **Expected:** It disappears from normal users' filter lists.
 
 ### H8 🟣 Refunds require a reason
+
 1. **Admin → Subscriptions** (needs a completed test payment from F4).
 2. Click **Refund** on a row.
 
 **Expected:** A dialog with the amount pre-filled to the full charge **and a
-required Reason box**. Submitting without a reason is rejected.
-3. Enter a smaller amount and a reason, then confirm.
+required Reason box**. Submitting without a reason is rejected. 3. Enter a smaller amount and a reason, then confirm.
 **Expected:** Success; the refund appears in your Stripe dashboard under
 Payments; the action is in the Audit log.
 
 ### H9 🟣 Cancel is separate from suspend
+
 1. On a subscription row click **Cancel**, give a reason, confirm.
 
 **Expected:** The subscription is cancelled but the **user can still log in** —
@@ -1055,12 +1117,14 @@ cancelling billing and banning an account are deliberately different actions.
 ## I. Privacy and account deletion
 
 ### I1 🟢 Marketing email toggle
+
 1. As any user, go to **http://localhost:3000/settings/account**
 
 **Expected:** A toggle for marketing emails (on by default) and a Delete account
 section. Toggling off and reloading keeps it off.
 
 ### I2 🟢 Unsubscribe link works without logging in
+
 1. In the terminal or your inbox, find a marketing-style email's unsubscribe
    link. (If you have not sent one, skip — this is verified by I1.)
 
@@ -1068,6 +1132,7 @@ section. Toggling off and reloading keeps it off.
 confirmation page.
 
 ### I3 🟢 Account deletion is a 30-day soft delete
+
 1. Sign up a throwaway account, then on /settings/account click **Delete**.
 
 **Expected:** A confirmation dialog explains the 30-day recovery window. After
@@ -1077,12 +1142,99 @@ account is refused.
 > The data is not gone yet — it is marked for deletion. The scheduled cleanup
 > (`npm run hard-delete`) removes it permanently after 30 days.
 
-### I4 🟢 Resume file is not kept
+### I4 🟢 Parsed resume file is not kept
+
 1. Complete a resume upload (C1).
 
-**Expected:** Only the extracted text/details are stored — there is no way to
-download the original file back from the app anywhere in the interface. This is
-intentional.
+**Expected:** Only the extracted text/details are stored — the file you parsed
+is not downloadable anywhere. Documents you deliberately save on a profile
+(J5) are different and _are_ stored on purpose.
+
+---
+
+## J. Phase 3 features
+
+### J1 🟢 Sidebar layout
+
+1. Sign in and visit Dashboard, Profiles, Filters, Billing, Account, Help.
+2. Narrow the window to phone width.
+
+**Expected:** Navigation is a rail down the left on every signed-in page, with
+the current page highlighted. Content uses the full remaining width. At phone
+width the rail collapses behind a ☰ button and closes itself after you tap a
+link.
+
+### J2 🟢 Resume parsing shows a spinner
+
+1. Onboarding step 2: choose a PDF resume.
+2. Then go to **Profiles → open a profile → Upload résumé**, choose a PDF.
+
+**Expected:** Both show a spinning indicator and "Reading your résumé…" for the
+whole wait (this can take 10-20 seconds). The profile version fills the form
+below it and leaves the profile name, job preferences and EEO answers alone.
+
+### J3 🟢 Exclusions warn before you spend anything
+
+1. **Filters → Exclusions**: add a company (use one you can find a posting for)
+   and a keyword like `unpaid`.
+2. Open a matching job posting and click the extension icon — **without**
+   clicking Check fit score.
+
+**Expected:** A red "On your exclusion list" banner naming up to two reasons,
+with no AI action consumed (the counter in the popup header is unchanged).
+Filter verdicts appear as a single ✓/✗/○ line you can click to expand.
+
+### J4 🟢 Application details expand
+
+1. Track a job after running Check fit score.
+2. On the dashboard, click the ▸ at the start of that row.
+3. Open the same job on a second site and use **Re-track** on it.
+
+**Expected:** The panel shows the fit reasoning (a few specific sentences, not
+one vague line), filter verdicts, what the AI read off the posting (location,
+salary, sponsorship…), timestamps, and **every** link — the original and each
+re-tracked one, labelled. Re-track in the popup lists those links straight
+after it runs. Export CSV includes the new columns.
+
+### J5 🟢 CV and cover letter attach themselves
+
+1. **Profiles → open a profile → Documents**: upload a CV and a cover letter.
+2. Open a real application form that has file upload fields (Greenhouse and
+   Lever postings usually do) and click **Quick Fill**.
+
+**Expected:** Both files appear attached in the page's own file fields, named
+as you uploaded them. Quick Fill says how many files it attached and uses no AI
+action. Removing a document on the profile stops it being attached.
+
+### J6 🟢 Extension sign out and back in
+
+1. In the popup, click **Sign out**.
+2. Click **Sign in**, log in on the tab that opens.
+3. Return to the popup and click **I've signed in — retry**.
+
+**Expected:** Sign out returns the popup to the signed-out screen. Sign in lands
+you on the dashboard. Retry restores the popup without reinstalling anything.
+
+### J7 🟢 Manual per-field fill (no AI)
+
+1. On any application form, right-click inside a text field.
+2. **ApplyNinjaa → Fill manually →** your profile **→** a field.
+3. Wait a minute (so the extension goes idle) and repeat on another field.
+
+**Expected:** The chosen value is typed into the field, the AI counter does not
+move, and the second attempt works exactly like the first. Adding a saved
+answer on the profile and reopening the popup makes it appear in the menu.
+
+### J8 🟣 Super admin can change any plan
+
+1. As the super admin: **Admin → Users → Change plan** on another account.
+2. Do the same for your own account from **Admin → Subscriptions**.
+3. Check **Admin → Audit**.
+
+**Expected:** The plan changes immediately (verify on that account's Billing
+page), a reason is required, and both changes appear in the audit log. If the
+account has a real Stripe subscription the dialog warns that billing is
+unaffected — that is deliberate, not a bug.
 
 ---
 
@@ -1165,10 +1317,11 @@ starting `sk-`, `sk_test_`, `whsec_`, `re_`, or your `AUTH_SECRET` /
 Be aware while testing:
 
 - **This has never been run against a live database before.** Every
-  database-backed feature in this guide is being exercised for the first time.
+  database-backed feature in this guide is being exercised for the first time,
+  including everything in section J.
 - No AI, payment, email, or Gmail call has ever actually executed — those code
   paths are unproven.
-- What *has* been verified: the project builds cleanly, passes its code checks,
+- What _has_ been verified: the project builds cleanly, passes its code checks,
   and resume text extraction (PDF and DOCX) works.
 - Automated tests do not exist yet, which is why this manual guide matters.
 
