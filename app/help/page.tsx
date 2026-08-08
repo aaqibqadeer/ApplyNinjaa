@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { AppHeader } from "@/components/shared/AppHeader";
+import { AppShell } from "@/components/shared/AppShell";
 import { features } from "@/config/features";
 import { requireAuth } from "@/lib/auth/server";
 import { listFiltersForUser } from "@/lib/filters/service";
@@ -56,9 +56,8 @@ export default async function HelpPage() {
   const profileLimit = getProfileLimit(plan);
 
   return (
-    <>
-      <AppHeader session={session} />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+    <AppShell session={session}>
+      <div className="mx-auto w-full max-w-4xl">
         <h1 className="font-heading text-2xl font-semibold">How it works</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           What the filter verdicts mean, what each extension button does, and
@@ -108,11 +107,10 @@ export default async function HelpPage() {
             <p className="font-medium">Worked example</p>
             <p className="text-muted-foreground mt-1">
               On <em>Remote/Hybrid/Onsite Match</em>, with Remote as your
-              preference: a posting that says &ldquo;5 days a week
-              onsite&rdquo; is <strong>No</strong> — it conflicts with what you
-              asked for. A posting that never mentions location is{" "}
-              <strong>Neutral</strong> — not <strong>No</strong>. Silence is
-              never treated as a refusal.
+              preference: a posting that says &ldquo;5 days a week onsite&rdquo;
+              is <strong>No</strong> — it conflicts with what you asked for. A
+              posting that never mentions location is <strong>Neutral</strong> —
+              not <strong>No</strong>. Silence is never treated as a refusal.
             </p>
           </div>
         </section>
@@ -207,8 +205,8 @@ export default async function HelpPage() {
               </li>
             )}
             <li>
-              CSV export: {plan.limits?.dataExport ? "included" : "not included"}
-              .
+              CSV export:{" "}
+              {plan.limits?.dataExport ? "included" : "not included"}.
             </li>
           </ul>
           <p className="text-muted-foreground mt-4 text-sm">
@@ -223,7 +221,7 @@ export default async function HelpPage() {
             )}
           </p>
         </section>
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

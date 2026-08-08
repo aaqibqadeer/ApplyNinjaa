@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { AppHeader } from "@/components/shared/AppHeader";
+import { AppShell } from "@/components/shared/AppShell";
 import { InviteMemberForm } from "@/components/org/InviteMemberForm";
 import { MemberList, type MemberRow } from "@/components/org/MemberList";
 import {
@@ -56,9 +56,8 @@ export default async function OrganizationSettingsPage() {
     }));
 
   return (
-    <>
-      <AppHeader session={session} />
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-6">
+    <AppShell session={session}>
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <div>
           <h1 className="text-2xl font-semibold">Organization</h1>
           <p className="text-muted-foreground text-sm">
@@ -99,7 +98,7 @@ export default async function OrganizationSettingsPage() {
             <PendingInvites invites={pending} />
           </CardContent>
         </Card>
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

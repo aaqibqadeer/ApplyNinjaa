@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ProfileList } from "@/components/profiles/ProfileList";
-import { AppHeader } from "@/components/shared/AppHeader";
+import { AppShell } from "@/components/shared/AppShell";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { UpgradeNotice } from "@/components/shared/UpgradeNotice";
 import { Button } from "@/components/ui/button";
@@ -32,9 +32,8 @@ export default async function ProfilesPage() {
     : null;
 
   return (
-    <>
-      <AppHeader session={session} />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+    <AppShell session={session}>
+      <div className="mx-auto w-full max-w-5xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="font-heading text-2xl font-semibold">Profiles</h1>
@@ -90,7 +89,7 @@ export default async function ProfilesPage() {
             />
           </div>
         )}
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

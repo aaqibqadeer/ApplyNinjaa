@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ProfileEditor } from "@/components/profiles/ProfileEditor";
-import { AppHeader } from "@/components/shared/AppHeader";
+import { AppShell } from "@/components/shared/AppShell";
 import { requireAuth } from "@/lib/auth/server";
 import type { ProfileFormValues } from "@/lib/profiles/form-values";
 import { getProfile, type OwnedProfile } from "@/lib/profiles/service";
@@ -58,14 +58,13 @@ export default async function EditProfilePage({
   }
 
   return (
-    <>
-      <AppHeader session={session} />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+    <AppShell session={session}>
+      <div className="mx-auto w-full max-w-4xl">
         <h1 className="font-heading mb-6 text-2xl font-semibold">
           Edit “{profile.name}”
         </h1>
         <ProfileEditor profileId={profile.id} initial={toFormValues(profile)} />
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }
