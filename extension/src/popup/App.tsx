@@ -4,6 +4,7 @@ import {
   api,
   API_ORIGIN,
   ApiRequestError,
+  clearToken,
   getToken,
   SignInRequiredError,
 } from "../lib/api";
@@ -69,7 +70,7 @@ export function App() {
   const [attached, setAttached] = useState<AttachedSummary | null>(null);
   const [review, setReview] = useState<ReviewField[]>([]);
   const [busy, setBusy] = useState<
-    null | "analyze" | "quick" | "ai" | "track" | "retrack"
+    null | "analyze" | "quick" | "ai" | "track" | "retrack" | "signin"
   >(null);
   const [tracked, setTracked] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -194,6 +195,10 @@ export function App() {
       const cached = await chrome.storage.session.get(key);
       const hit = cached[key] as AnalyzeJobResponse | undefined;
       if (hit) setAnalysis(hit);
+
+      // Chrome builds context menus ahead of time, so the manual-fill submenu
+      // only picks up a new profile or saved answer when we ask for a rebuild.
+      void chrome.runtime.sendMessage({ type: "refresh-menu" }).catch(() => {});
 
       const stored = await chrome.storage.session.get(RECENT_APPS_KEY);
       const cachedRecent = stored[RECENT_APPS_KEY] as
@@ -479,6 +484,41 @@ export function App() {
     void chrome.tabs.create({ url: `${API_ORIGIN}${path}` });
   }
 
+  /**
+   * Drop the stored token. The dashboard cookie is left alone on purpose —
+   * signing the extension out shouldn't sign the user out of a tab they have
+   * open; "Sign in" re-exchanges the cookie for a new token.
+   */
+  async function onSignOut(): Promise<void> {
+    await clearToken();
+    // Menu entries are built from profile data this token fetched.
+    void chrome.runtime.sendMessage({ type: "refresh-menu" }).catch(() => {});
+    setProfiles([]);
+    setProfileId(null);
+    setAnalysis(null);
+    setExclusions([]);
+    setUsage(null);
+    setRecent([]);
+    setError(null);
+    setNotice(null);
+    setScreen({ kind: "signed-out" });
+  }
+
+  /** Re-exchange the dashboard cookie after the user signed in elsewhere. */
+  async function onRetrySignIn(): Promise<void> {
+    setError(null);
+    setBusy("signin");
+    try {
+      await getToken();
+      // Simplest correct reload of every piece of open-time state.
+      window.location.reload();
+    } catch {
+      setError("Still signed out — sign in on the dashboard, then retry.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   /* -- Screens ------------------------------------------------------------ */
 
   if (screen.kind === "loading") {
@@ -497,11 +537,24 @@ export function App() {
         <div className="flex flex-col items-center gap-3 py-8">
           <p className="text-sm">Sign in to use ApplyNinjaa.</p>
           <button
-            className="btn-primary"
-            onClick={() => openDashboard("/login")}
+            className="btn-primary w-full"
+            onClick={() => openDashboard("/login?next=/dashboard")}
           >
             Sign in
           </button>
+          {/* The popup can't observe the sign-in happening in another tab, so
+              this is how the user comes back without reopening it. */}
+          <button
+            className="btn-secondary w-full"
+            onClick={() => void onRetrySignIn()}
+          >
+            {busy === "signin" ? "Checking…" : "I've signed in — retry"}
+          </button>
+          {error && (
+            <p className="text-destructive text-xs" role="alert">
+              {error}
+            </p>
+          )}
         </div>
       </Shell>
     );
@@ -522,7 +575,7 @@ export function App() {
   for (const f of analysis?.filterResults ?? []) tally[f.verdict] += 1;
 
   return (
-    <Shell usage={usage}>
+    <Shell usage={usage} onSignOut={() => void onSignOut()}>
       {profiles.length > 1 && (
         <label className="flex items-center gap-2 text-xs">
           <span className="text-muted-foreground shrink-0">Profile</span>
@@ -796,19 +849,31 @@ export function App() {
 function Shell({
   children,
   usage,
+  onSignOut,
 }: {
   children: React.ReactNode;
   usage?: Usage | null;
+  onSignOut?: () => void;
 }) {
   return (
     <div className="flex flex-col gap-3 p-4">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-2">
         <span className="text-sm font-semibold">ApplyNinjaa</span>
-        {usage ? (
-          <span className="text-muted-foreground text-xs">
-            {usage.used}/{usage.cap} AI actions
-          </span>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {usage ? (
+            <span className="text-muted-foreground text-xs">
+              {usage.used}/{usage.cap} AI actions
+            </span>
+          ) : null}
+          {onSignOut && (
+            <button
+              className="text-muted-foreground hover:text-foreground text-xs underline"
+              onClick={onSignOut}
+            >
+              Sign out
+            </button>
+          )}
+        </div>
       </header>
       {children}
     </div>
