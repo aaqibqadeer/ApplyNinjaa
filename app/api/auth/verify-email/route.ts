@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { isAnyAuthEnabled } from "@/config/features";
 import { DEFAULT_AUTHED_PATH, LOGIN_PATH } from "@/lib/auth/constants";
+import { appUrl } from "@/lib/auth/urls";
 import { consumeVerificationToken } from "@/lib/auth/verification";
 
 /**
@@ -14,17 +15,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
   const token = request.nextUrl.searchParams.get("token");
   if (!token) {
-    return NextResponse.redirect(
-      new URL(`${LOGIN_PATH}?error=verify`, request.url),
-    );
+    return NextResponse.redirect(appUrl(`${LOGIN_PATH}?error=verify`));
   }
   const user = await consumeVerificationToken(token);
   if (!user) {
-    return NextResponse.redirect(
-      new URL(`${LOGIN_PATH}?error=verify`, request.url),
-    );
+    return NextResponse.redirect(appUrl(`${LOGIN_PATH}?error=verify`));
   }
-  return NextResponse.redirect(
-    new URL(`${DEFAULT_AUTHED_PATH}?verified=1`, request.url),
-  );
+  return NextResponse.redirect(appUrl(`${DEFAULT_AUTHED_PATH}?verified=1`));
 }

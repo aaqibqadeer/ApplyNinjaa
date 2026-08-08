@@ -4,6 +4,7 @@ import { env } from "@/config/env.schema";
 import { features } from "@/config/features";
 import { auth, type OAuthProvider } from "@/lib/auth";
 import { LOGIN_PATH } from "@/lib/auth/constants";
+import { appUrl } from "@/lib/auth/urls";
 
 const CLIENT_ID: Record<OAuthProvider, () => string | undefined> = {
   google: () => env.GOOGLE_CLIENT_ID,
@@ -24,14 +25,15 @@ export async function GET(
 ): Promise<NextResponse> {
   const { provider } = await params;
   if (!isEnabled(provider)) {
-    return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
+    return NextResponse.redirect(appUrl(LOGIN_PATH));
   }
   const next = request.nextUrl.searchParams.get("next") ?? undefined;
   try {
     const url = await auth.getOAuthUrl(provider, next);
     return NextResponse.redirect(url);
-  } catch {
-    const url = new URL(LOGIN_PATH, request.url);
+  } catch (err) {
+    console.error(`[oauth start] ${provider} failed:`, err);
+    const url = appUrl(LOGIN_PATH);
     url.searchParams.set("error", "oauth");
     return NextResponse.redirect(url);
   }

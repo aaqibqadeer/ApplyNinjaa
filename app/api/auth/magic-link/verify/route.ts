@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { DEFAULT_AUTHED_PATH, LOGIN_PATH } from "@/lib/auth/constants";
+import { appUrl } from "@/lib/auth/urls";
 
 /**
  * Consumes a magic-link token and establishes a session, then redirects.
@@ -10,7 +11,7 @@ import { DEFAULT_AUTHED_PATH, LOGIN_PATH } from "@/lib/auth/constants";
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!features.auth.magicLink) {
-    return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
+    return NextResponse.redirect(appUrl(LOGIN_PATH));
   }
   const token =
     request.nextUrl.searchParams.get("token") ??
@@ -18,9 +19,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     "";
   try {
     await auth.verifyMagicLink(token);
-    return NextResponse.redirect(new URL(DEFAULT_AUTHED_PATH, request.url));
+    return NextResponse.redirect(appUrl(DEFAULT_AUTHED_PATH));
   } catch {
-    const url = new URL(LOGIN_PATH, request.url);
+    const url = appUrl(LOGIN_PATH);
     url.searchParams.set("error", "magic_link");
     return NextResponse.redirect(url);
   }

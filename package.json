@@ -13,7 +13,9 @@
     "seed": "tsx scripts/seed.ts",
     "sync:plans": "tsx scripts/sync-plans.ts",
     "hard-delete": "tsx scripts/hard-delete.ts",
-    "build:extension": "npm --prefix extension install && npm --prefix extension run build"
+    "build:extension": "npm --prefix extension install && npm --prefix extension run build",
+    "build:extension:prod": "npm --prefix extension install && VITE_API_ORIGIN=https://applyninjaa.up.railway.app npm --prefix extension run build",
+    "dev:extension": "npm --prefix extension run dev"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { features } from "@/config/features";
 import { authorize } from "@/lib/auth/roles";
+import { appUrl } from "@/lib/auth/urls";
 import { completeGmailOAuth } from "@/lib/gmail/oauth";
 
 /** Google redirects here after Gmail consent. */
@@ -15,8 +16,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const session = await authorize();
     if (!code) throw new Error("Missing code");
     await completeGmailOAuth(session.user.id, code, state);
-    return NextResponse.redirect(new URL("/settings/gmail?connected=1", request.url));
-  } catch {
-    return NextResponse.redirect(new URL("/settings/gmail?error=connect", request.url));
+    return NextResponse.redirect(appUrl("/settings/gmail?connected=1"));
+  } catch (err) {
+    console.error("[gmail callback] failed:", err);
+    return NextResponse.redirect(appUrl("/settings/gmail?error=connect"));
   }
 }
