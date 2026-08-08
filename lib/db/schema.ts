@@ -507,6 +507,36 @@ export const profileEeoSchema = z.object({
 });
 export type ProfileEeo = z.infer<typeof profileEeoSchema>;
 
+/**
+ * A file the user deliberately saved on a profile — the CV/résumé and cover
+ * letter the extension uploads into application forms.
+ *
+ * Only the storage key lives here; bytes go through the StorageAdapter
+ * (`lib/storage`). This is separate from the résumé PARSED at onboarding,
+ * which is still read in memory and discarded.
+ */
+export const PROFILE_DOCUMENT_KINDS = {
+  resume: "resume",
+  cover_letter: "cover_letter",
+} as const;
+export type ProfileDocumentKind =
+  (typeof PROFILE_DOCUMENT_KINDS)[keyof typeof PROFILE_DOCUMENT_KINDS];
+export const profileDocumentKindSchema = z.enum([
+  PROFILE_DOCUMENT_KINDS.resume,
+  PROFILE_DOCUMENT_KINDS.cover_letter,
+]);
+
+export const profileDocumentSchema = z.object({
+  kind: profileDocumentKindSchema,
+  /** Storage object key (`uploads/<scope>/<uuid>-<name>`). */
+  key: z.string().min(1),
+  filename: z.string().min(1),
+  contentType: z.string().min(1),
+  size: z.number().int().nonnegative(),
+  uploadedAt: z.coerce.date(),
+});
+export type ProfileDocument = z.infer<typeof profileDocumentSchema>;
+
 export const profileSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
@@ -520,6 +550,8 @@ export const profileSchema = z.object({
   education: z.array(profileEducationSchema).default([]),
   projects: z.array(profileProjectSchema).default([]),
   customFields: z.array(profileCustomFieldSchema).default([]),
+  /** At most one per kind — a second upload replaces the first. */
+  documents: z.array(profileDocumentSchema).default([]),
   /** Free-text background the AI may draw on for open-ended questions. */
   knowledgeBase: z.string().default(""),
   links: profileLinksSchema.default({}),

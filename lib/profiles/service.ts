@@ -16,6 +16,7 @@ import {
   employmentTypeSchema,
   profileContactSchema,
   profileCustomFieldSchema,
+  profileDocumentSchema,
   profileEducationSchema,
   profileExperienceSchema,
   profileLinksSchema,
@@ -26,6 +27,7 @@ import {
   type ProfileEeo,
   type UpdateProfile,
 } from "@/lib/db";
+import { objectUrlFor } from "@/lib/storage/mongodb/adapter";
 import { enforceProfileLimit } from "@/lib/usage/enforce";
 
 class ProfileError extends Error {
@@ -104,6 +106,8 @@ export const profileInputSchema = z.object({
   education: z.array(profileEducationSchema).max(15).optional(),
   projects: z.array(profileProjectSchema).max(20).optional(),
   customFields: z.array(profileCustomFieldSchema).max(50).optional(),
+  /** At most one per kind; the route trusts the storage key it minted. */
+  documents: z.array(profileDocumentSchema).max(4).optional(),
   knowledgeBase: z.string().max(10000).optional(),
   links: profileLinksSchema.optional(),
   workAuthorization: workAuthorizationSchema.nullable().optional(),
@@ -184,6 +188,15 @@ export interface ProfileFillData {
   employmentTypes: string[];
   salaryExpectation: string | null;
   customFields: Profile["customFields"];
+  /** CV / cover letter the extension can upload into a form's file input. */
+  documents: Array<{
+    kind: string;
+    filename: string;
+    contentType: string;
+    size: number;
+    /** Same-origin path to fetch the bytes from (Bearer-capable). */
+    url: string;
+  }>;
   /** Most recent role/school only — forms ask for "current", not a history. */
   currentTitle: string | null;
   currentCompany: string | null;
@@ -197,7 +210,8 @@ export async function getProfileFillData(
   id: string,
 ): Promise<ProfileFillData> {
   const profile = await requireOwned(session, id);
-  const latestRole = profile.experience.find((e) => e.current) ?? profile.experience[0];
+  const latestRole =
+    profile.experience.find((e) => e.current) ?? profile.experience[0];
   const latestSchool = profile.education[0];
   return {
     id: profile.id,
@@ -209,6 +223,13 @@ export async function getProfileFillData(
     employmentTypes: profile.employmentTypes,
     salaryExpectation: profile.salaryExpectation ?? null,
     customFields: profile.customFields,
+    documents: profile.documents.map((document) => ({
+      kind: document.kind,
+      filename: document.filename,
+      contentType: document.contentType,
+      size: document.size,
+      url: objectUrlFor(document.key),
+    })),
     currentTitle: latestRole?.title ?? null,
     currentCompany: latestRole?.company ?? null,
     latestSchool: latestSchool?.school ?? null,
@@ -243,6 +264,7 @@ export async function createProfile(
     education: input.education ?? [],
     projects: input.projects ?? [],
     customFields: input.customFields ?? [],
+    documents: input.documents ?? [],
     knowledgeBase: input.knowledgeBase ?? "",
     links: input.links ?? {},
     workAuthorization: input.workAuthorization ?? null,
@@ -285,6 +307,7 @@ export async function updateProfile(
     education: input.education,
     projects: input.projects,
     customFields: input.customFields,
+    documents: input.documents,
     knowledgeBase: input.knowledgeBase,
     links: input.links,
     workAuthorization: input.workAuthorization,

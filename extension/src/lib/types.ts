@@ -78,6 +78,16 @@ export interface UsageResponse {
   source: "paid" | "trial" | "free";
 }
 
+/** A CV / cover letter stored on the profile, for a form's file input. */
+export interface ProfileDocument {
+  kind: "resume" | "cover_letter";
+  filename: string;
+  contentType: string;
+  size: number;
+  /** Same-origin path; fetch it with the Bearer token. */
+  url: string;
+}
+
 /** GET /api/profiles/[id]/fill-data — the offline Quick Fill source. */
 export interface ProfileFillData {
   id: string;
@@ -89,6 +99,7 @@ export interface ProfileFillData {
   employmentTypes: string[];
   salaryExpectation: string | null;
   customFields: Array<{ label: string; value: string }>;
+  documents: ProfileDocument[];
   currentTitle: string | null;
   currentCompany: string | null;
   latestSchool: string | null;

@@ -115,7 +115,9 @@ export function collectPageData(): CollectedPage {
  * Write mapped values into the tagged fields. Dispatches input/change events
  * so React/Vue-controlled forms notice. Returns the ids it actually filled.
  */
-export function fillFields(values: Array<{ id: string; value: string }>): string[] {
+export function fillFields(
+  values: Array<{ id: string; value: string }>,
+): string[] {
   function setNativeValue(
     el: HTMLInputElement | HTMLTextAreaElement,
     value: string,
@@ -162,7 +164,7 @@ export function fillFields(values: Array<{ id: string; value: string }>): string
           filled.push(id);
         }
       } else if (el.type === "file") {
-        // Never touch file inputs.
+        // Files can't be set from a string — `attachFiles` below handles them.
       } else {
         setNativeValue(el, value);
         filled.push(id);
@@ -173,6 +175,49 @@ export function fillFields(values: Array<{ id: string; value: string }>): string
     }
   }
   return filled;
+}
+
+/**
+ * Put stored documents into the page's file inputs.
+ *
+ * A file input's `value` is read-only for security, so the only way in is a
+ * `DataTransfer` list — which means the `File` object must be constructed in
+ * the PAGE's realm, not the popup's. Hence base64: `executeScript` args are
+ * JSON-serialized, so bytes can't cross as a Blob.
+ *
+ * Returns the ids it actually attached to.
+ */
+export function attachFiles(
+  files: Array<{
+    id: string;
+    filename: string;
+    contentType: string;
+    base64: string;
+  }>,
+): string[] {
+  const attached: string[] = [];
+  for (const { id, filename, contentType, base64 } of files) {
+    const el = document.querySelector<HTMLElement>(
+      `[data-applyninjaa-id="${id}"]`,
+    );
+    if (!(el instanceof HTMLInputElement) || el.type !== "file") continue;
+    try {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1)
+        bytes[i] = binary.charCodeAt(i);
+      const file = new File([bytes], filename, { type: contentType });
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      el.files = transfer.files;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      attached.push(id);
+    } catch {
+      // Some hosts lock down DataTransfer — leave it for the manual list.
+    }
+  }
+  return attached;
 }
 
 /** Describe the currently focused editable element (context-menu fill). */

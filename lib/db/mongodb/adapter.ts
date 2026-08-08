@@ -47,6 +47,7 @@ import {
   type InvitationStatus,
   type ApplicationJobDetails,
   type ExclusionMatch,
+  type ProfileDocument,
   type ExclusionRule,
   type JobFilter,
   type NewAdminAction,
@@ -189,6 +190,7 @@ interface ProfileDoc {
   education: ProfileEducation[];
   projects: ProfileProject[];
   custom_fields: ProfileCustomField[];
+  documents: ProfileDocument[];
   knowledge_base: string;
   links: ProfileLinks;
   work_authorization: string | null;
@@ -474,6 +476,7 @@ const profileSchema = new Schema<ProfileDoc>(
     education: { type: Schema.Types.Mixed, default: [] },
     projects: { type: Schema.Types.Mixed, default: [] },
     custom_fields: { type: Schema.Types.Mixed, default: [] },
+    documents: { type: Schema.Types.Mixed, default: [] },
     knowledge_base: { type: String, default: "" },
     links: { type: Schema.Types.Mixed, default: {} },
     work_authorization: { type: String, default: null },
@@ -833,6 +836,7 @@ function toProfile(doc: ProfileDoc): Profile {
     education: doc.education ?? [],
     projects: doc.projects ?? [],
     customFields: doc.custom_fields ?? [],
+    documents: doc.documents ?? [],
     knowledgeBase: doc.knowledge_base ?? "",
     links: doc.links ?? {},
     workAuthorization: (doc.work_authorization ??
@@ -1505,6 +1509,7 @@ export class MongoAdapter implements DatabaseAdapter {
       education: parsed.education,
       projects: parsed.projects,
       custom_fields: parsed.customFields,
+      documents: parsed.documents,
       knowledge_base: parsed.knowledgeBase,
       links: parsed.links,
       work_authorization: parsed.workAuthorization ?? null,
@@ -1544,6 +1549,7 @@ export class MongoAdapter implements DatabaseAdapter {
     if (patch.projects !== undefined) update.projects = patch.projects;
     if (patch.customFields !== undefined)
       update.custom_fields = patch.customFields;
+    if (patch.documents !== undefined) update.documents = patch.documents;
     if (patch.knowledgeBase !== undefined)
       update.knowledge_base = patch.knowledgeBase;
     if (patch.links !== undefined) update.links = patch.links;

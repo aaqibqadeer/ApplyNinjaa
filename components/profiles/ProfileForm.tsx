@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { ProfileDocuments } from "@/components/profiles/ProfileDocuments";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -645,6 +646,11 @@ export function ProfileForm({
           ))}
         </div>
       </section>
+
+      <ProfileDocuments
+        documents={values.documents}
+        onChange={(documents) => set("documents", documents)}
+      />
 
       <section className="flex flex-col gap-2">
         <Label htmlFor="profile-knowledge">Background notes</Label>

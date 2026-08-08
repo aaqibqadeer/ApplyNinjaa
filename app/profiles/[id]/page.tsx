@@ -24,6 +24,10 @@ function toFormValues(profile: OwnedProfile): ProfileFormValues {
     education: profile.education,
     projects: profile.projects,
     customFields: profile.customFields,
+    documents: profile.documents.map((document) => ({
+      ...document,
+      uploadedAt: document.uploadedAt.toISOString(),
+    })),
     knowledgeBase: profile.knowledgeBase,
     links: profile.links,
     workAuthorization: profile.workAuthorization ?? null,

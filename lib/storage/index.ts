@@ -5,9 +5,11 @@
  * the `storage` flag — the adapter is only reached from flag-gated routes.
  */
 
+import { env } from "@/config/env.schema";
 import { features } from "@/config/features";
 
 import type { StorageAdapter } from "./adapter";
+import { MongoStorageAdapter } from "./mongodb/adapter";
 import { S3StorageAdapter } from "./s3/adapter";
 
 function createAdapter(): StorageAdapter {
@@ -16,10 +18,13 @@ function createAdapter(): StorageAdapter {
       "storage adapter used while storage is disabled — set NEXT_PUBLIC_FEATURE_STORAGE",
     );
   }
-  // S3 (and S3-compatible endpoints) is the only implementation shipped in the
-  // template. A fork adding another provider switches on `env.STORAGE_PROVIDER`
-  // here, the same way lib/db/index.ts branches on DB_PROVIDER.
-  return new S3StorageAdapter();
+  // The one file allowed to branch on the provider (§1.2). `mongodb` reuses
+  // the database connection and needs no object-store credentials, which is
+  // why this fork defaults to it; `s3` covers AWS and any S3-compatible
+  // endpoint (R2, MinIO).
+  return env.STORAGE_PROVIDER === "s3"
+    ? new S3StorageAdapter()
+    : new MongoStorageAdapter();
 }
 
 let instance: StorageAdapter | null = null;

@@ -126,6 +126,7 @@ feature needs the same pattern.
 | Component           | Location                                     | Purpose                                                                                                                     |
 | ------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `ProfileForm`       | `components/profiles/ProfileForm.tsx`        | Full profile editor (contact/summary/skills/experience/education/links/preferences + EEO behind explicit consent checkbox). |
+| `ProfileDocuments`  | `components/profiles/ProfileDocuments.tsx`   | CV + cover-letter slots on a profile (upload/replace/remove via `/api/storage/upload-url`). Renders null when `features.storage` is off. One document per kind. |
 | `ResumeUpload`      | `components/profiles/ResumeUpload.tsx`       | Résumé (PDF/DOCX) → parsed profile fields via `/api/ai/parse-resume` (1 AI action), with a real spinner for the multi-second parse. Used by onboarding step 2 and the profile editor. |
 | `ProfileEditor`     | `components/profiles/ProfileEditor.tsx`      | Client wrapper persisting ProfileForm via POST/PATCH `/api/profiles`.                                                       |
 | `ProfileList`       | `components/profiles/ProfileList.tsx`        | Profile rows with edit / make-default / delete.                                                                             |

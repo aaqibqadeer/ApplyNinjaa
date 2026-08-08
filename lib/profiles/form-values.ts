@@ -39,6 +39,15 @@ export interface CustomFieldValue {
   value: string;
 }
 
+export interface DocumentValue {
+  kind: "resume" | "cover_letter";
+  key: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  uploadedAt: string;
+}
+
 export interface ProfileFormValues {
   name: string;
   contact: Record<string, string | null | undefined>;
@@ -48,6 +57,7 @@ export interface ProfileFormValues {
   education: EducationValue[];
   projects: ProjectValue[];
   customFields: CustomFieldValue[];
+  documents: DocumentValue[];
   knowledgeBase: string;
   links: Record<string, string | null | undefined>;
   workAuthorization: string | null;
@@ -88,6 +98,7 @@ export const emptyProfileValues: ProfileFormValues = {
   education: [],
   projects: [],
   customFields: [],
+  documents: [],
   knowledgeBase: "",
   links: {},
   workAuthorization: null,

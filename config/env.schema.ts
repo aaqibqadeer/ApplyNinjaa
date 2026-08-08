@@ -78,8 +78,9 @@ const baseSchema = z.object({
   STRIPE_WEBHOOK_SECRET: optionalString,
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: optionalString,
 
-  // Storage (S3 / S3-compatible)
-  STORAGE_PROVIDER: optionalString,
+  // Storage — `mongodb` (GridFS, reuses MONGODB_URI, no extra credentials) or
+  // `s3` (AWS or any S3-compatible endpoint).
+  STORAGE_PROVIDER: z.enum(["mongodb", "s3"]).optional(),
   AWS_S3_BUCKET: optionalString,
   AWS_REGION: optionalString,
   AWS_ACCESS_KEY_ID: optionalString,
@@ -300,8 +301,7 @@ function parseEnv(): Env {
       TEST_DB_PATTERN: process.env.TEST_DB_PATTERN ?? "test",
       NEXT_PUBLIC_APP_URL:
         process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-      DB_PROVIDER:
-        (process.env.DB_PROVIDER as Env["DB_PROVIDER"]) ?? "mongodb",
+      DB_PROVIDER: (process.env.DB_PROVIDER as Env["DB_PROVIDER"]) ?? "mongodb",
     } as Env;
   }
 

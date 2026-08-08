@@ -7,7 +7,8 @@ import {
   getToken,
   SignInRequiredError,
 } from "../lib/api";
-import { collectPageData, fillFields } from "../lib/dom-actions";
+import { loadAttachments, matchDocuments } from "../lib/documents";
+import { attachFiles, collectPageData, fillFields } from "../lib/dom-actions";
 import type { CollectedField, CollectedPage } from "../lib/dom-actions";
 import { matchExclusions } from "../lib/exclusions";
 import { quickFill } from "../lib/quick-fill";
@@ -233,6 +234,31 @@ export function App() {
     }
   }
 
+  /**
+   * Attach stored CV / cover letter to the page's file inputs. Costs no AI
+   * action — it's a byte copy, not a decision. Returns how many landed.
+   */
+  async function attachDocuments(
+    documents: ProfileFillData["documents"],
+  ): Promise<number> {
+    if (!page || !tabId || documents.length === 0) return 0;
+    const pairs = matchDocuments(page.fields, documents);
+    if (pairs.length === 0) return 0;
+    try {
+      const files = await loadAttachments(pairs);
+      if (files.length === 0) return 0;
+      const [injected] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: attachFiles,
+        args: [files],
+      });
+      return ((injected?.result as string[] | null) ?? []).length;
+    } catch {
+      // Never fail a fill because a document couldn't be attached.
+      return 0;
+    }
+  }
+
   /** Offline matching — no backend AI call, so it survives the monthly cap. */
   async function onQuickFill(): Promise<void> {
     if (!page || !tabId || !profileId) return;
@@ -243,10 +269,15 @@ export function App() {
       const { profile } = await api<{ profile: ProfileFillData }>(
         `/api/profiles/${profileId}/fill-data`,
       );
+      const attachedCount = await attachDocuments(profile.documents);
       const { values, unmatched } = quickFill(page.fields, profile);
       if (values.length === 0) {
         setReview(unmatched.map((label) => ({ label, filled: false })));
-        setNotice("Nothing matched — fill these by hand, or try AI Fill.");
+        setNotice(
+          attachedCount > 0
+            ? `Attached ${attachedCount} file${attachedCount === 1 ? "" : "s"}; no text field matched — fill these by hand, or try AI Fill.`
+            : "Nothing matched — fill these by hand, or try AI Fill.",
+        );
         return;
       }
       const [injected] = await chrome.scripting.executeScript({
@@ -266,7 +297,11 @@ export function App() {
         ...unmatched.map((label) => ({ label, filled: false })),
       ]);
       setNotice(
-        `Filled ${filledIds.size} field${filledIds.size === 1 ? "" : "s"} — no AI action used.`,
+        `Filled ${filledIds.size} field${filledIds.size === 1 ? "" : "s"}` +
+          (attachedCount > 0
+            ? ` and attached ${attachedCount} file${attachedCount === 1 ? "" : "s"}`
+            : "") +
+          " — no AI action used.",
       );
     } catch (err) {
       handleApiError(err);
@@ -281,6 +316,15 @@ export function App() {
     setNotice(null);
     setBusy("ai");
     try {
+      // Documents attach the same way here — the AI maps text fields, it has
+      // nothing to say about a file input.
+      let attachedCount = 0;
+      if (profileId) {
+        const { profile } = await api<{ profile: ProfileFillData }>(
+          `/api/profiles/${profileId}/fill-data`,
+        );
+        attachedCount = await attachDocuments(profile.documents);
+      }
       const result = await api<MapFieldsResponse>("/api/ai/map-fields", {
         body: {
           fields: page.fields,
@@ -318,6 +362,11 @@ export function App() {
             };
           }),
       );
+      if (attachedCount > 0) {
+        setNotice(
+          `Attached ${attachedCount} file${attachedCount === 1 ? "" : "s"} from your profile.`,
+        );
+      }
     } catch (err) {
       handleApiError(err);
     } finally {
