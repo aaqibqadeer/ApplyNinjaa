@@ -63,6 +63,22 @@ export interface ProfileFormValues {
   } | null;
 }
 
+/**
+ * The subset `/api/ai/parse-resume` returns (lib/ai/tasks.ts `parsedResumeSchema`).
+ * Merged over the current form values — it never carries a profile name, job
+ * preferences, or EEO answers, so those survive a re-parse.
+ */
+export type ParsedResumeValues = Pick<
+  ProfileFormValues,
+  | "contact"
+  | "summary"
+  | "skills"
+  | "experience"
+  | "education"
+  | "projects"
+  | "links"
+>;
+
 export const emptyProfileValues: ProfileFormValues = {
   name: "Primary",
   contact: {},

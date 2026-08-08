@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { Spinner } from "@/components/shared/Spinner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -109,7 +110,10 @@ export function ApplicationsTable({
   }, [rows, search, statusFilter, sortKey, sortAsc]);
 
   function patchLocal(id: string, patch: Partial<Row>) {
-    setRows((r) => r?.map((row) => (row.id === id ? { ...row, ...patch } : row)) ?? null);
+    setRows(
+      (r) =>
+        r?.map((row) => (row.id === id ? { ...row, ...patch } : row)) ?? null,
+    );
   }
 
   async function save(id: string, patch: Record<string, unknown>) {
@@ -143,9 +147,8 @@ export function ApplicationsTable({
     } else if (status) {
       setRows(
         (r) =>
-          r?.map((row) =>
-            selected.has(row.id) ? { ...row, status } : row,
-          ) ?? null,
+          r?.map((row) => (selected.has(row.id) ? { ...row, status } : row)) ??
+          null,
       );
     }
     setSelected(new Set());
@@ -218,7 +221,12 @@ export function ApplicationsTable({
   }
 
   if (rows === null) {
-    return <p className="text-muted-foreground text-sm">Loading applications…</p>;
+    return (
+      <p className="text-muted-foreground flex items-center gap-2 text-sm">
+        <Spinner size="sm" label="Loading applications" />
+        Loading applications…
+      </p>
+    );
   }
 
   if (rows.length === 0) {
@@ -344,8 +352,12 @@ export function ApplicationsTable({
                   <Input
                     className="h-8"
                     value={row.company}
-                    onChange={(e) => patchLocal(row.id, { company: e.target.value })}
-                    onBlur={(e) => void save(row.id, { company: e.target.value })}
+                    onChange={(e) =>
+                      patchLocal(row.id, { company: e.target.value })
+                    }
+                    onBlur={(e) =>
+                      void save(row.id, { company: e.target.value })
+                    }
                   />
                 </TableCell>
                 <TableCell className="min-w-44">
@@ -445,7 +457,9 @@ export function ApplicationsTable({
                     className="h-8"
                     value={row.notes}
                     placeholder="Notes…"
-                    onChange={(e) => patchLocal(row.id, { notes: e.target.value })}
+                    onChange={(e) =>
+                      patchLocal(row.id, { notes: e.target.value })
+                    }
                     onBlur={(e) => void save(row.id, { notes: e.target.value })}
                   />
                 </TableCell>

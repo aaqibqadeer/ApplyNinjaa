@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 
 import { features } from "@/config/features";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/shared/Spinner";
 
 export interface FileUploadResult {
   /** The stored object key — persist this to reference the file later. */
@@ -102,7 +103,8 @@ export function FileUpload({
         className="border-input file:bg-secondary file:text-secondary-foreground text-muted-foreground rounded-md border px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:px-3 file:py-1 file:text-sm"
       />
       {busy && (
-        <p role="status" className="text-muted-foreground text-sm">
+        <p className="text-muted-foreground flex items-center gap-2 text-sm">
+          <Spinner size="sm" label="Uploading" />
           Uploading…
         </p>
       )}

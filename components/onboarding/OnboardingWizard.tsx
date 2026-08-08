@@ -1,15 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { FilterToggles } from "@/components/filters/FilterToggles";
 import { ProfileForm } from "@/components/profiles/ProfileForm";
+import { ResumeUpload } from "@/components/profiles/ResumeUpload";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { APP_NAME } from "@/config/brand";
 import {
   emptyProfileValues,
+  type ParsedResumeValues,
   type ProfileFormValues,
 } from "@/lib/profiles/form-values";
 
@@ -30,41 +32,12 @@ const STEPS = [
 export function OnboardingWizard() {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [parsing, setParsing] = useState(false);
-  const [parseError, setParseError] = useState<string | null>(null);
   const [initialValues, setInitialValues] =
     useState<ProfileFormValues>(emptyProfileValues);
-  const fileInput = useRef<HTMLInputElement>(null);
 
-  async function onFileChosen(file: File) {
-    setParseError(null);
-    setParsing(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/ai/parse-resume", {
-        method: "POST",
-        body: form,
-      });
-      const data = (await res.json()) as {
-        parsed?: Omit<ProfileFormValues, "name" | "eeo" | "workAuthorization" | "workArrangement" | "employmentTypes" | "salaryExpectation"> & Record<string, unknown>;
-        error?: string;
-      };
-      if (!res.ok || !data.parsed) {
-        setParseError(data.error ?? "Could not read that resume");
-        return;
-      }
-      setInitialValues({
-        ...emptyProfileValues,
-        ...data.parsed,
-        name: "Primary",
-      });
-      setStep(2);
-    } catch {
-      setParseError("Something went wrong — try again");
-    } finally {
-      setParsing(false);
-    }
+  function onParsed(parsed: ParsedResumeValues) {
+    setInitialValues({ ...emptyProfileValues, ...parsed, name: "Primary" });
+    setStep(2);
   }
 
   async function saveProfile(values: ProfileFormValues) {
@@ -101,18 +74,17 @@ export function OnboardingWizard() {
             Welcome to {APP_NAME}
           </h1>
           <p className="text-muted-foreground text-sm">
-            Two minutes of setup and you&apos;ll never re-type your work
-            history into a job application again. First: install the Chrome
-            extension — it&apos;s where the magic happens (job screening, fit
-            scores, and one-click autofill on any job site).
+            Two minutes of setup and you&apos;ll never re-type your work history
+            into a job application again. First: install the Chrome extension —
+            it&apos;s where the magic happens (job screening, fit scores, and
+            one-click autofill on any job site).
           </p>
           <div className="border-border bg-card w-full rounded-lg border p-4 text-sm">
             <p className="font-medium">Install the extension</p>
             <p className="text-muted-foreground mt-1 text-xs">
               Open <span className="font-mono">chrome://extensions</span>,
-              enable Developer mode, and load the ApplyNinjaa extension. You
-              can also do this later — everything else works from this
-              dashboard.
+              enable Developer mode, and load the ApplyNinjaa extension. You can
+              also do this later — everything else works from this dashboard.
             </p>
           </div>
           <Button onClick={() => setStep(1)}>Continue</Button>
@@ -126,48 +98,10 @@ export function OnboardingWizard() {
           </h1>
           <p className="text-muted-foreground text-sm">
             PDF or DOCX, 5&nbsp;MB max. We read it once to build your profile,
-            then discard the file — only the structured data you approve in
-            the next step is stored.
+            then discard the file — only the structured data you approve in the
+            next step is stored.
           </p>
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void onFileChosen(file);
-            }}
-          />
-          {parsing ? (
-            <div
-              className="border-border w-full rounded-lg border border-dashed p-10 text-center"
-              role="status"
-            >
-              <p className="text-sm font-medium">Reading your resume…</p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                Extracting your experience, skills, and education.
-              </p>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInput.current?.click()}
-              className="border-border hover:bg-accent/40 w-full cursor-pointer rounded-lg border border-dashed p-10 text-center transition-colors"
-            >
-              <p className="text-sm font-medium">
-                Click to choose your resume
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                PDF or DOCX
-              </p>
-            </button>
-          )}
-          {parseError && (
-            <p className="text-destructive text-sm" role="alert">
-              {parseError}
-            </p>
-          )}
+          <ResumeUpload onParsed={onParsed} />
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => setStep(0)}>
               Back
@@ -186,9 +120,8 @@ export function OnboardingWizard() {
               Review your profile
             </h1>
             <p className="text-muted-foreground text-sm">
-              Everything below is editable — fix anything the parser got
-              wrong. This becomes the profile the extension fills
-              applications from.
+              Everything below is editable — fix anything the parser got wrong.
+              This becomes the profile the extension fills applications from.
             </p>
           </div>
           <ProfileForm
@@ -206,10 +139,10 @@ export function OnboardingWizard() {
               Set your Valid Job filters
             </h1>
             <p className="text-muted-foreground text-sm">
-              When you open a job posting, the extension checks it against
-              every enabled filter and shows a Yes / No / Neutral badge for
-              each — so you spot deal-breakers (like no visa sponsorship)
-              before wasting an application.
+              When you open a job posting, the extension checks it against every
+              enabled filter and shows a Yes / No / Neutral badge for each — so
+              you spot deal-breakers (like no visa sponsorship) before wasting
+              an application.
             </p>
           </div>
           <FilterToggles />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { Spinner } from "@/components/shared/Spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -103,7 +104,12 @@ export function FilterToggles({
   }
 
   if (!filters) {
-    return <p className="text-muted-foreground text-sm">Loading filters…</p>;
+    return (
+      <p className="text-muted-foreground flex items-center gap-2 text-sm">
+        <Spinner size="sm" label="Loading filters" />
+        Loading filters…
+      </p>
+    );
   }
 
   return (
