@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import {
+  PlanAssignDialog,
+  type AssignablePlan,
+} from "@/components/admin/PlanAssignDialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -13,6 +17,7 @@ import { Label } from "@/components/ui/label";
 
 export interface SubscriptionRow {
   id: string;
+  organizationId: string;
   orgName: string;
   planName: string;
   status: string;
@@ -35,14 +40,20 @@ const STATUS_VARIANT: Record<string, BadgeProps["variant"]> = {
 
 interface SubscriptionsTableProps {
   rows: SubscriptionRow[];
-  /** Cancel is super-admin-only; support admins see refunds only. */
+  /** Cancel + plan changes are super-admin-only; support sees refunds only. */
   isSuperAdmin: boolean;
+  /** Active plans for the plan picker, read from the plans table (§15). */
+  plans?: AssignablePlan[];
 }
 
-/** Cross-user subscription list with refund (staff) + cancel (super-admin). */
+/**
+ * Cross-user subscription list with refund (staff), cancel and plan change
+ * (super-admin).
+ */
 export function SubscriptionsTable({
   rows,
   isSuperAdmin,
+  plans = [],
 }: SubscriptionsTableProps) {
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
@@ -131,6 +142,21 @@ export function SubscriptionsTable({
       className: "text-right",
       cell: (r) => (
         <div className="flex justify-end gap-1">
+          {isSuperAdmin && plans.length > 0 && (
+            <PlanAssignDialog
+              plans={plans}
+              organizationId={r.organizationId}
+              subjectLabel={r.orgName}
+              currentPlanName={r.planName}
+              hasStripeSubscription={Boolean(r.stripeSubscriptionId)}
+              onAssigned={() => window.location.reload()}
+              trigger={
+                <Button variant="ghost" size="sm">
+                  Change plan
+                </Button>
+              }
+            />
+          )}
           {isSuperAdmin && (
             <ConfirmDialog
               destructive

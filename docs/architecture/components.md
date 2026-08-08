@@ -89,6 +89,7 @@ Feature-scoped (§9.4): reusable within the admin panel, gated behind
 | `TrialDaysForm`      | `components/admin/TrialDaysForm.tsx`      | Edit the platform-wide trial length (super-admin).                   | `initialTrialDays`                                             | `app/admin/settings/page.tsx`      |
 | `PlanManager`        | `components/admin/PlanManager.tsx`        | Plan table with active toggle, edit, delete (super-admin).           | `plans`, `annualBilling`, `paymentsEnabled`                    | `app/admin/plans/page.tsx`         |
 | `PlanFormDialog`     | `components/admin/PlanFormDialog.tsx`     | Create/edit-plan dialog form; price change mints a new Stripe Price. | `trigger`, `plan?`, `annualBilling`                            | `PlanManager`                      |
+| `PlanAssignDialog`   | `components/admin/PlanAssignDialog.tsx`   | Super-admin plan grant (plan + status + audited reason). Local only — warns when a live Stripe subscription is left untouched. | `trigger`, `plans`, `organizationId`, `subjectLabel`, `currentPlanName?`, `hasStripeSubscription?`, `isSelf?`, `onAssigned` | `AdminUsersTable`, `SubscriptionsTable` |
 | `SubscriptionsTable` | `components/admin/SubscriptionsTable.tsx` | Cross-org subscriptions with cancel + refund (confirm dialogs).      | `rows`                                                         | `app/admin/subscriptions/page.tsx` |
 
 ## `/components/auth` — auth feature components (Phase 3)

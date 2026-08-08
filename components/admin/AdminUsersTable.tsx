@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  PlanAssignDialog,
+  type AssignablePlan,
+} from "@/components/admin/PlanAssignDialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,20 +29,30 @@ interface UserRow {
   emailVerified: boolean;
   isSuperAdmin: boolean;
   isSupportAdmin: boolean;
+  organizationId: string | null;
   planName: string;
   subscriptionStatus: string | null;
+  hasStripeSubscription: boolean;
   usageThisMonth: number;
 }
 
 interface AdminUsersTableProps {
-  /** Suspend/ban/delete are super-admin-only; support admins just view. */
+  /** Suspend/ban/delete/plan changes are super-admin-only; support just views. */
   isSuperAdmin: boolean;
+  /** Active plans for the plan picker; empty when payments is off. */
+  plans?: AssignablePlan[];
+  /** The viewer's own user id, so their row can say so. */
+  currentUserId?: string;
 }
 
 /** Platform user management: search, plan tier, monthly usage, and (for
  * super admins) suspend/ban/reactivate + deletion trigger — all with audited
  * reasons. */
-export function AdminUsersTable({ isSuperAdmin }: AdminUsersTableProps) {
+export function AdminUsersTable({
+  isSuperAdmin,
+  plans = [],
+  currentUserId,
+}: AdminUsersTableProps) {
   const [rows, setRows] = useState<UserRow[] | null>(null);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -171,6 +185,22 @@ export function AdminUsersTable({ isSuperAdmin }: AdminUsersTableProps) {
                     {isSuperAdmin && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          {plans.length > 0 && row.organizationId && (
+                            <PlanAssignDialog
+                              plans={plans}
+                              organizationId={row.organizationId}
+                              subjectLabel={row.email}
+                              currentPlanName={row.planName}
+                              hasStripeSubscription={row.hasStripeSubscription}
+                              isSelf={row.id === currentUserId}
+                              onAssigned={() => void load(search, offset)}
+                              trigger={
+                                <Button variant="ghost" size="sm">
+                                  Change plan
+                                </Button>
+                              }
+                            />
+                          )}
                           {row.status === "active" ? (
                             <>
                               <ConfirmDialog

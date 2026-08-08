@@ -38,7 +38,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   try {
     const session = await authorize({ superAdmin: true });
-    const parsed = createSchema.safeParse(await request.json().catch(() => null));
+    const parsed = createSchema.safeParse(
+      await request.json().catch(() => null),
+    );
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message ?? "Invalid input" },
@@ -69,7 +71,9 @@ export async function PATCH(request: Request): Promise<NextResponse> {
   }
   try {
     const session = await authorize({ superAdmin: true });
-    const parsed = updateSchema.safeParse(await request.json().catch(() => null));
+    const parsed = updateSchema.safeParse(
+      await request.json().catch(() => null),
+    );
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message ?? "Invalid input" },
@@ -99,7 +103,9 @@ export async function DELETE(request: Request): Promise<NextResponse> {
   }
   try {
     const session = await authorize({ superAdmin: true });
-    const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
+    const parsed = deleteSchema.safeParse(
+      await request.json().catch(() => null),
+    );
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message ?? "Invalid input" },

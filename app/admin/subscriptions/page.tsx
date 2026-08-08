@@ -27,7 +27,21 @@ export default async function AdminSubscriptionsPage() {
   const session = await requirePlatformStaff();
   if (!features.payments.enabled) notFound();
 
-  const subscriptions = await db.listSubscriptions();
+  const [subscriptions, allPlans] = await Promise.all([
+    db.listSubscriptions(),
+    db.listPlans(),
+  ]);
+  // Plan names/prices are admin-editable — the picker reads the table (§15).
+  const plans = session.user.isSuperAdmin
+    ? allPlans
+        .filter((plan) => plan.isActive)
+        .sort(
+          (a, b) =>
+            a.sortOrder - b.sortOrder || a.priceMonthly - b.priceMonthly,
+        )
+        .map((plan) => ({ id: plan.id, name: plan.name, slug: plan.slug }))
+    : [];
+
   const rows: SubscriptionRow[] = await Promise.all(
     subscriptions.map(async (sub) => {
       const [org, plan] = await Promise.all([
@@ -39,6 +53,7 @@ export default async function AdminSubscriptionsPage() {
         : null;
       return {
         id: sub.id,
+        organizationId: sub.organizationId,
         orgName: org?.name ?? "(unknown)",
         planName: plan?.name ?? "(unknown)",
         status: sub.status,
@@ -63,7 +78,11 @@ export default async function AdminSubscriptionsPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <SubscriptionsTable rows={rows} isSuperAdmin={session.user.isSuperAdmin} />
+        <SubscriptionsTable
+          rows={rows}
+          isSuperAdmin={session.user.isSuperAdmin}
+          plans={plans}
+        />
       </CardContent>
     </Card>
   );

@@ -16,8 +16,12 @@ export interface AdminUserRow {
   emailVerified: boolean;
   isSuperAdmin: boolean;
   isSupportAdmin: boolean;
+  /** The user's default org — the billing entity a plan is assigned to. */
+  organizationId: string | null;
   planName: string;
   subscriptionStatus: string | null;
+  /** Set when the org's subscription is a real Stripe one, not a local grant. */
+  hasStripeSubscription: boolean;
   usageThisMonth: number;
   createdAt: Date;
 }
@@ -71,8 +75,10 @@ export async function listUsersWithBilling(params: {
       emailVerified: Boolean(user.emailVerifiedAt),
       isSuperAdmin: user.isSuperAdmin,
       isSupportAdmin: user.isSupportAdmin,
+      organizationId: orgId ?? null,
       planName: plan?.name ?? "Free",
       subscriptionStatus: subscription?.status ?? null,
+      hasStripeSubscription: Boolean(subscription?.stripeSubscriptionId),
       usageThisMonth: usage.get(user.id) ?? 0,
       createdAt: user.createdAt,
     };

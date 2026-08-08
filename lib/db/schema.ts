@@ -705,6 +705,8 @@ export const ADMIN_ACTIONS = [
   "ban_user",
   "delete_user",
   "cancel_subscription",
+  /** Super admin put an org on a plan directly (no Stripe involvement). */
+  "plan_assign",
   "plan_create",
   "plan_update",
   "plan_delete",
